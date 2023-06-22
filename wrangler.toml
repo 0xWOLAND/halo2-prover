@@ -1,0 +1,6 @@
+name = "halo2-verifier"
+compatibility_date = "2022-10-18"
+main = "worker/index.js"
+
+[site]
+bucket = "./dist"
