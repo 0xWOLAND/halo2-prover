@@ -1,4 +1,5 @@
 mod arithmetic_circuit;
+mod collatz;
 use arithmetic_circuit::*;
 use yew::prelude::*;
 
@@ -33,6 +34,7 @@ mod test {
 
 #[function_component]
 fn App() -> Html {
+    println!("Running draw graph...");
     arithmetic_circuit::draw::draw_graph();
     let proof = match test::test("this is workingn") {
         Ok(res) => "Proof Passed",
@@ -62,5 +64,6 @@ fn App() -> Html {
 }
 
 fn main() {
+    arithmetic_circuit::draw::draw_graph();
     yew::Renderer::<App>::new().render();
 }

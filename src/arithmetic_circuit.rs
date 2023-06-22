@@ -3,12 +3,8 @@ use std::marker::PhantomData;
 use halo2_proofs::{
     arithmetic::Field,
     circuit::{Cell, Layouter, SimpleFloorPlanner, Value},
-    halo2curves::pasta::Fp,
-    plonk::{
-        keygen_pk, keygen_vk, Advice, Assigned, Circuit, Column, ConstraintSystem, Error, Fixed,
-        FloorPlanner, Instance, ProvingKey, VerifyingKey,
-    },
-    poly::{commitment::Params, Rotation},
+    plonk::{Advice, Assigned, Circuit, Column, ConstraintSystem, Error, Fixed, Instance},
+    poly::Rotation,
 };
 
 trait ArithmeticInstructions<F: Field> {
@@ -99,8 +95,8 @@ impl<F: Field> ArithmeticInstructions<F> for ArithmeticChip<F> {
                     || values.unwrap().map(|v| v.2),
                 )?;
 
-                region.assign_fixed(|| "m", self.config.sm, 0, || Value::known(F::ONE))?;
-                region.assign_fixed(|| "o", self.config.so, 0, || Value::known(F::ONE))?;
+                region.assign_fixed(|| "m", self.config.sm, 0, || Value::known(F::one()))?;
+                region.assign_fixed(|| "o", self.config.so, 0, || Value::known(F::one()))?;
 
                 Ok((lhs.cell(), rhs.cell(), out.cell()))
             },
@@ -140,9 +136,9 @@ impl<F: Field> ArithmeticInstructions<F> for ArithmeticChip<F> {
                     || values.unwrap().map(|v| v.2),
                 )?;
 
-                region.assign_fixed(|| "l", self.config.sl, 0, || Value::known(F::ONE))?;
-                region.assign_fixed(|| "r", self.config.sr, 0, || Value::known(F::ONE))?;
-                region.assign_fixed(|| "o", self.config.so, 0, || Value::known(F::ONE))?;
+                region.assign_fixed(|| "l", self.config.sl, 0, || Value::known(F::one()))?;
+                region.assign_fixed(|| "r", self.config.sr, 0, || Value::known(F::one()))?;
+                region.assign_fixed(|| "o", self.config.so, 0, || Value::known(F::one()))?;
 
                 Ok((lhs.cell(), rhs.cell(), out.cell()))
             },
@@ -207,7 +203,7 @@ impl<F: Field> Circuit<F> for ArithmeticCircuit<F> {
             let sm = meta.query_fixed(sm, Rotation::cur());
             let sc = meta.query_fixed(sc, Rotation::cur());
 
-            vec![l.clone() * sl + r.clone() * sr + l * r * sm + (o * so * (-F::ONE)) + sc]
+            vec![l.clone() * sl + r.clone() * sr + l * r * sm + (o * so * (-F::one())) + sc]
         });
 
         ArithmeticConfig {
@@ -263,7 +259,11 @@ impl<F: Field> Circuit<F> for ArithmeticCircuit<F> {
 
 pub mod draw {
     use super::*;
-    use halo2_proofs::{circuit::Value, dev::CircuitGates, halo2curves::pasta::pallas};
+    use halo2_proofs::{
+        circuit::Value,
+        dev::CircuitGates,
+        halo2curves::pasta::{pallas, Fp},
+    };
 
     pub fn draw_graph() {
         // Prepare the circuit you want to render.
@@ -297,7 +297,7 @@ pub mod draw {
         //     .unwrap();
 
         halo2_proofs::dev::CircuitLayout::default()
-            // .show_equality_constraints(true)
+            .show_equality_constraints(true)
             .view_width(0..2)
             .view_height(0..16)
             .show_labels(true)
@@ -315,7 +315,6 @@ pub mod draw {
 #[cfg(test)]
 mod test {
     use super::ArithmeticCircuit;
-    use halo2_proofs::arithmetic::Field;
     use halo2_proofs::circuit::Value;
     use halo2_proofs::dev::MockProver;
     use halo2_proofs::halo2curves::pasta::Fp;
