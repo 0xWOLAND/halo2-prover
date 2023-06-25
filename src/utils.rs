@@ -1,18 +1,18 @@
-// use halo2_proofs::{arithmetic::Field, halo2curves::FieldExt};
-// use num_bigint::BigUint;
-//
-// fn from_bytes_le(bytes: &[u8]) -> FieldExt {
-// let mut repr = Self::Repr::default();
-// repr.as_mut()[..bytes.len()].copy_from_slice(bytes);
-// FieldExt::from_repr(repr).unwrap()
-// }
-//
-// pub fn biguint_to_fe<F: FieldExt>(e: &BigUint) -> F {
-// let bytes = e.to_bytes_le();
-// F::from_bytes_le(&bytes)
-// }
-//
-// pub fn fe_to_biguint<F: FieldExt>(fe: &F) -> BigUint {
-// BigUint::from_bytes_le(fe.to_bytes_le().as_ref())
-// }
-//
+use std::error::Error;
+
+use halo2_proofs::{dev::CircuitLayout, halo2curves::pasta::Fp, plonk::Circuit};
+use plotters::prelude::*;
+
+pub fn draw_graph(name: String, circuit: impl Circuit<Fp>, k: u32) {
+    let root = SVGBackend::new(&name, (1024, 768)).into_drawing_area();
+    root.fill(&WHITE).unwrap();
+    let root = root.titled(&name, ("sans-serif", 30)).unwrap();
+
+    CircuitLayout::default()
+        .show_equality_constraints(true)
+        .view_width(0..2)
+        .view_height(0..16)
+        .show_labels(true)
+        .render(k, &circuit, &root)
+        .unwrap()
+}

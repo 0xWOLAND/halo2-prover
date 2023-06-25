@@ -188,6 +188,21 @@ impl<F: FieldExt> Circuit<F> for CollatzCircuit<F> {
         Ok(())
     }
 }
+pub fn collatz_conjecture(mut n: u64) -> Vec<u64> {
+    let mut ans = Vec::new();
+    ans.push(n);
+
+    while n > 1 {
+        if n & 1 > 0 {
+            n = 3 * n + 1;
+        } else {
+            n /= 2;
+        }
+        ans.push(n);
+    }
+    ans.push(n);
+    ans
+}
 
 #[cfg(test)]
 mod test {
@@ -195,27 +210,10 @@ mod test {
 
     use super::CollatzCircuit;
 
-    fn collatz(mut n: u64) -> Vec<u64> {
-        let mut ans = Vec::new();
-        ans.push(n);
-
-        while n > 1 {
-            if n & 1 > 0 {
-                n = 3 * n + 1;
-            } else {
-                n /= 2;
-            }
-            ans.push(n);
-        }
-
-        println!("{:?}", ans);
-        ans
-    }
-
     #[test]
     fn test_collatz() {
         let k = 8;
-        let x: Vec<Value<_>> = collatz(7)
+        let x: Vec<Value<_>> = super::collatz_conjecture(7)
             .iter()
             .map(|y: &u64| Value::known(Fp::from(*y)))
             .collect();
