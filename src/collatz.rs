@@ -92,7 +92,7 @@ impl<F: FieldExt> CollatzChip<F> {
 
 #[derive(Default)]
 pub struct CollatzCircuit<F: FieldExt> {
-    pub x: Value<F>,
+    pub x: Vec<Value<F>>,
 }
 
 impl<F: FieldExt> Circuit<F> for CollatzCircuit<F> {
@@ -144,15 +144,23 @@ impl<F: FieldExt> Circuit<F> for CollatzCircuit<F> {
     ) -> Result<(), Error> {
         let cs = CollatzChip::new(config);
 
-        let x: Value<Assigned<_>> = self.x.into();
-        let consta = Assigned::from(F::from(3));
-        let constb = Assigned::from(F::from(2));
-        let constc = Assigned::from(F::from(1));
+        let arr: Vec<Value<Assigned<_>>> = self
+            .x
+            .iter()
+            .map(|k| Into::<Value<Assigned<_>>>::into(*k))
+            .collect();
 
-        let (x0, y0) =
-            cs.apply_function(&mut layouter, || x.map(|x| (x, consta * x + constc)), false)?;
+        for x in arr {
+            let consta = Assigned::from(F::from(3));
+            let constb = Assigned::from(F::from(2));
+            let constc = Assigned::from(F::from(1));
 
-        cs.expose_public(&mut layouter, y0, 0);
+            let (x0, y0) =
+                cs.apply_function(&mut layouter, || x.map(|x| (x, consta * x + constc)), false)?;
+
+            cs.expose_public(&mut layouter, y0, 0);
+        }
+
         Ok(())
     }
 }
@@ -166,13 +174,32 @@ mod test {
     use crate::collatz::CollatzCircuit;
     // use halo2_proofs::pasta::Fp;
 
+    fn collatz(mut n: i32) -> Vec<i32> {
+        let mut ans = Vec::new();
+        ans.push(n);
+
+        while (n >= 1) {
+            if (n & 1 > 0) {
+                n *= 3 + 1;
+            } else {
+                n /= 2;
+            }
+            ans.push(n);
+        }
+
+        ans
+    }
+
     #[test]
     fn test() {
         let k = 4;
         let x = Fp::from(5);
         let y = Fp::from(16);
+        println!("{:?}", collatz(16));
 
-        let circuit: CollatzCircuit<Fp> = CollatzCircuit { x: Value::known(x) };
+        let circuit: CollatzCircuit<Fp> = CollatzCircuit {
+            x: vec![Value::known(x)],
+        };
 
         let mut public_inputs = vec![y];
         let prover = MockProver::run(k, &circuit, vec![public_inputs.clone()]).unwrap();
