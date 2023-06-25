@@ -1,6 +1,7 @@
 mod arithmetic_circuit;
 mod collatz;
 mod collatz2;
+mod utils;
 use arithmetic_circuit::*;
 use yew::prelude::*;
 

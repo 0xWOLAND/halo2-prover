@@ -975,6 +975,7 @@ dependencies = [
  "halo2_proofs 0.2.0 (git+https://github.com/halo2-ce/halo2.git)",
  "halo2wrong",
  "js-sys",
+ "num-bigint",
  "plotters",
  "rand_core",
  "rayon",

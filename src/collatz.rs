@@ -1,26 +1,73 @@
 use std::marker::PhantomData;
 
+// use crate::utils
 use halo2_proofs::{
-    arithmetic::FieldExt,
-    circuit::{Cell, Layouter, SimpleFloorPlanner, Value},
-    plonk::{
-        Advice, Assigned, Circuit, Column, ConstraintSystem, Error, Expression, Fixed, Instance,
-        Selector,
-    },
+    circuit::{AssignedCell, Cell, Layouter, SimpleFloorPlanner, Value},
+    halo2curves::FieldExt,
+    plonk::{Advice, Assigned, Circuit, Column, ConstraintSystem, Error, Expression, Selector},
     poly::Rotation,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Copy, Debug)]
 pub struct CollatzConfig {
-    pub x: Column<Advice>,
-    pub y: Column<Advice>,
-
-    pub se: Selector,
-    pub so: Selector,
-
-    pub pi: Column<Instance>,
+    witness: Column<Advice>,
+    // Normally, you would use `Selector` instead
+    is_odd: Column<Advice>,
+    selector: Selector,
+    final_entry: Selector,
 }
 
+impl CollatzConfig {
+    pub fn configure<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
+        // create witness column
+        let witness = meta.advice_column();
+        let is_odd = meta.advice_column();
+        let final_entry = meta.selector();
+        let selector = meta.selector();
+
+        meta.enable_equality(witness);
+
+        meta.create_gate("is_even", |meta| {
+            let x = meta.query_advice(witness, Rotation::cur());
+            let y = meta.query_advice(witness, Rotation::next());
+
+            let is_odd = meta.query_advice(is_odd, Rotation::cur());
+            let sel = meta.query_selector(selector);
+
+            vec![
+                sel * ((Expression::Constant(F::from(1)) - is_odd)
+                    * (x - Expression::Constant(F::from(2)) * y)),
+            ]
+        });
+
+        meta.create_gate("is_odd", |meta| {
+            let x = meta.query_advice(witness, Rotation::cur());
+            let y = meta.query_advice(witness, Rotation::next());
+
+            let is_odd = meta.query_advice(is_odd, Rotation::cur());
+            let sel = meta.query_selector(selector);
+
+            vec![
+                sel * (is_odd
+                    * (Expression::Constant(F::from(3)) * x + Expression::Constant(F::from(1))
+                        - y)),
+            ]
+        });
+
+        meta.create_gate("final_element", |meta| {
+            let x = meta.query_advice(witness, Rotation::cur());
+            let sel = meta.query_selector(final_entry);
+            vec![sel * (Expression::Constant(F::from(1)) - x)]
+        });
+
+        Self {
+            witness,
+            is_odd,
+            selector,
+            final_entry,
+        }
+    }
+}
 pub struct CollatzChip<F: FieldExt> {
     config: CollatzConfig,
     marker: PhantomData<F>,
@@ -34,63 +81,57 @@ impl<F: FieldExt> CollatzChip<F> {
         }
     }
 
-    fn apply_function<FM>(
+    fn assign(
         &self,
-        layouter: &mut impl Layouter<F>,
-        mut f: FM,
-        isEven: bool,
-    ) -> Result<(Cell, Cell), Error>
-    where
-        FM: FnMut() -> Value<(Assigned<F>, Assigned<F>)>,
-    {
+        mut layouter: impl Layouter<F>,
+        row: usize,
+        entry: Value<Assigned<F>>,
+        next: Value<Assigned<F>>,
+        is_odd: Value<Assigned<F>>,
+    ) -> Result<
+        (
+            AssignedCell<Assigned<F>, F>,
+            AssignedCell<Assigned<F>, F>,
+            AssignedCell<Assigned<F>, F>,
+        ),
+        halo2_proofs::plonk::Error,
+    > {
         layouter.assign_region(
-            || "handle_even",
+            || "initial entry",
             |mut region| {
-                let values = Some(f());
+                self.config.selector.enable(&mut region, row)?;
 
-                let lhs = region.assign_advice(
-                    || "lhs",
-                    self.config.x,
-                    0,
-                    || values.unwrap().map(|v| v.0),
-                )?;
+                let x = region.assign_advice(|| "x", self.config.witness, row, || entry)?;
+                let y = region.assign_advice(|| "y", self.config.witness, row + 1, || next)?;
+                let a: Value<Assigned<F>> = Value::known(F::from(2)).into();
+                println!("{:?} -> {:?}", entry, is_odd);
 
-                let rhs = region.assign_advice(
-                    || "rhs",
-                    self.config.y,
-                    0,
-                    || values.unwrap().map(|v| v.1),
-                )?;
-
-                match isEven {
-                    true => {
-                        self.config.se.enable(&mut region, 0)?;
-                    }
-                    _ => {
-                        self.config.so.enable(&mut region, 0)?;
-                    }
-                }
-
-                Ok((lhs.cell(), rhs.cell()))
+                let is_odd_cell =
+                    region.assign_advice(|| "sel", self.config.is_odd, row, || is_odd)?;
+                Ok((x, y, is_odd_cell))
             },
         )
     }
 
-    fn copy(&self, layouter: &mut impl Layouter<F>, a: Cell, b: Cell) -> Result<(), Error> {
-        layouter.assign_region(|| "copy", |mut region| region.constrain_equal(a, b))
-    }
-
-    fn expose_public(
-        &self,
-        layouter: &mut impl Layouter<F>,
-        cell: Cell,
+    fn assign_last(
+        &mut self,
+        mut layouter: impl Layouter<F>,
         row: usize,
-    ) -> Result<(), Error> {
-        layouter.constrain_instance(cell, self.config.pi, row)
+        entry: Value<Assigned<F>>,
+    ) -> Result<Cell, Error> {
+        layouter.assign_region(
+            || "final output",
+            |mut region| {
+                let a = region.assign_advice(|| "out", self.config.witness, row, || entry)?;
+                let _ = self.config.final_entry.enable(&mut region, row);
+
+                Ok(a.cell())
+            },
+        )
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct CollatzCircuit<F: FieldExt> {
     pub x: Vec<Value<F>>,
 }
@@ -104,37 +145,7 @@ impl<F: FieldExt> Circuit<F> for CollatzCircuit<F> {
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
-        let x = meta.advice_column();
-        let y = meta.advice_column();
-
-        meta.enable_equality(x);
-        meta.enable_equality(y);
-
-        let se = meta.selector();
-        let so = meta.selector();
-
-        let pi = meta.instance_column();
-        meta.enable_equality(pi);
-
-        meta.create_gate("check even", |meta| {
-            let x = meta.query_advice(x, Rotation::cur());
-            let y = meta.query_advice(y, Rotation::cur());
-
-            let se = meta.query_selector(se);
-
-            vec![se * (x - Expression::Constant(F::from(2)) * y)]
-        });
-
-        meta.create_gate("check odd", |meta| {
-            let x = meta.query_advice(x, Rotation::cur());
-            let y = meta.query_advice(y, Rotation::cur());
-
-            let so = meta.query_selector(so);
-
-            vec![so * (Expression::Constant(F::from(3)) * x + Expression::Constant(F::from(1)) - y)]
-        });
-
-        CollatzConfig { x, y, se, so, pi }
+        CollatzConfig::configure::<F>(meta)
     }
 
     fn synthesize(
@@ -142,24 +153,37 @@ impl<F: FieldExt> Circuit<F> for CollatzCircuit<F> {
         config: Self::Config,
         mut layouter: impl Layouter<F>,
     ) -> Result<(), Error> {
-        let cs = CollatzChip::new(config);
+        let mut chip: CollatzChip<F> = CollatzChip::new(config);
+        let nrows = self.x.len();
+        let one: Value<Assigned<F>> = Value::known(F::one()).into();
 
-        let arr: Vec<Value<Assigned<_>>> = self
-            .x
-            .iter()
-            .map(|k| Into::<Value<Assigned<_>>>::into(*k))
-            .collect();
-
-        for x in arr {
-            let consta = Assigned::from(F::from(3));
-            let constb = Assigned::from(F::from(2));
-            let constc = Assigned::from(F::from(1));
-
-            let (x0, y0) =
-                cs.apply_function(&mut layouter, || x.map(|x| (x, consta * x + constc)), false)?;
-
-            cs.expose_public(&mut layouter, y0, 0);
+        for row in 0..(nrows - 1) {
+            let s = format!("Collatz({})", row);
+            let is_odd: Value<Assigned<F>> = self.x[row]
+                .map(|k| F::from(k.is_odd().unwrap_u8() as u64))
+                .into();
+            let (contents, next, is_odd) = chip.assign(
+                layouter.namespace(|| s),
+                row,
+                self.x[row].into(),
+                self.x[row + 1].into(),
+                is_odd,
+            )?;
+            // println!(
+            // "cell: {:?} \n next: {:?} \nis odd: {:?}\n",
+            // contents.value(),
+            // next.value(),
+            // is_odd.value()
+            // );
+            // println!("-------------------------------");
         }
+
+        let out_cell = chip.assign_last(
+            layouter.namespace(|| "out"),
+            nrows - 1,
+            self.x[nrows - 1].into(),
+        )?;
+        println!("out cell: {:?}", self.x[nrows - 1]);
 
         Ok(())
     }
@@ -167,42 +191,39 @@ impl<F: FieldExt> Circuit<F> for CollatzCircuit<F> {
 
 #[cfg(test)]
 mod test {
-    use halo2_proofs::circuit::Value;
-    use halo2_proofs::dev::MockProver;
-    use halo2_proofs::halo2curves::pasta::Fp;
+    use halo2_proofs::{circuit::Value, dev::MockProver, halo2curves::pasta::Fp};
 
-    use crate::collatz::CollatzCircuit;
-    // use halo2_proofs::pasta::Fp;
+    use super::CollatzCircuit;
 
-    fn collatz(mut n: i32) -> Vec<i32> {
+    fn collatz(mut n: u64) -> Vec<u64> {
         let mut ans = Vec::new();
         ans.push(n);
 
-        while (n >= 1) {
-            if (n & 1 > 0) {
-                n *= 3 + 1;
+        while n > 1 {
+            if n & 1 > 0 {
+                n = 3 * n + 1;
             } else {
                 n /= 2;
             }
             ans.push(n);
         }
 
+        println!("{:?}", ans);
         ans
     }
 
     #[test]
-    fn test() {
-        let k = 4;
-        let x = Fp::from(5);
-        let y = Fp::from(16);
-        println!("{:?}", collatz(16));
+    fn test_collatz() {
+        let k = 8;
+        let x: Vec<Value<_>> = collatz(7)
+            .iter()
+            .map(|y: &u64| Value::known(Fp::from(*y)))
+            .collect();
 
-        let circuit: CollatzCircuit<Fp> = CollatzCircuit {
-            x: vec![Value::known(x)],
-        };
+        let circuit = CollatzCircuit { x };
 
-        let mut public_inputs = vec![y];
-        let prover = MockProver::run(k, &circuit, vec![public_inputs.clone()]).unwrap();
-        assert_eq!(prover.verify(), Ok(()));
+        MockProver::run(k, &circuit, vec![])
+            .unwrap()
+            .assert_satisfied();
     }
 }
