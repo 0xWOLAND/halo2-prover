@@ -3,10 +3,30 @@ use std::marker::PhantomData;
 // use crate::utils
 use halo2_proofs::{
     circuit::{AssignedCell, Cell, Layouter, SimpleFloorPlanner, Value},
-    halo2curves::FieldExt,
-    plonk::{Advice, Assigned, Circuit, Column, ConstraintSystem, Error, Expression, Selector},
-    poly::Rotation,
+    dev::MockProver,
+    halo2curves::{
+        bn256::{Bn256, Fr, G1Affine, G1},
+        pasta::Fp,
+        FieldExt,
+    },
+    plonk::{
+        create_proof, keygen_pk, keygen_vk, verify_proof, Advice, Assigned, Challenge, Circuit,
+        Column, ConstraintSystem, Error, Expression, ProvingKey, Selector, VerifyingKey,
+    },
+    poly::{
+        commitment::{Params, ParamsProver},
+        kzg::{
+            commitment::{KZGCommitmentScheme, ParamsKZG},
+            multiopen::{ProverSHPLONK, VerifierSHPLONK},
+            strategy::SingleStrategy,
+        },
+        Rotation,
+    },
+    transcript::{
+        Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
+    },
 };
+use rand_core::OsRng;
 
 #[derive(Clone, Copy, Debug)]
 pub struct CollatzConfig {
@@ -152,7 +172,7 @@ impl<F: FieldExt> CollatzChip<F> {
 
 #[derive(Clone, Default)]
 pub struct CollatzCircuit<F: FieldExt> {
-    pub x: Vec<Value<F>>,
+    pub x: [Value<F>; 32],
 }
 
 impl<F: FieldExt> Circuit<F> for CollatzCircuit<F> {
@@ -213,22 +233,106 @@ impl<F: FieldExt> Circuit<F> for CollatzCircuit<F> {
         Ok(())
     }
 }
-pub fn collatz_conjecture(mut n: u64) -> Vec<u64> {
-    let mut ans = Vec::new();
-    ans.push(n);
 
-    while n > 1 {
+pub fn collatz_conjecture(mut n: u64) -> [u64; 32] {
+    let mut ans: [u64; 32] = [1; 32];
+    let mut i = 0;
+    ans[i] = n;
+    i += 1;
+
+    while n > 1 && i < 32 {
         if n & 1 > 0 {
             n = 3 * n + 1;
         } else {
             n /= 2;
         }
-        ans.push(n);
-    }
-    for _ in 1..4 {
-        ans.push(1);
+        ans[i] = n;
+        i += 1;
     }
     ans
+}
+
+// pub fn empty_circuit() -> CollatzCircuit<Fp> {
+//     CollatzCircuit { x: () }
+// }
+pub fn generate_sequence(n: u64) -> Vec<Fp> {
+    collatz_conjecture(n)
+        .iter()
+        .map(|y: &u64| Fp::from(*y))
+        .collect()
+}
+
+pub fn create_circuit(a: &[Fp; 32]) -> CollatzCircuit<Fp> {
+    let x = a.map(|y| Value::known(y));
+    CollatzCircuit { x }
+}
+
+pub fn generate_params(k: u32) -> ParamsKZG<Bn256> {
+    ParamsKZG::<Bn256>::new(k)
+}
+
+pub fn generate_keys(params: &ParamsKZG<Bn256>) -> (ProvingKey<G1Affine>, VerifyingKey<G1Affine>) {
+    let circuit = CollatzCircuit {
+        x: [Value::unknown(); 32],
+    }
+    .clone()
+    .without_witnesses();
+
+    let vk = keygen_vk(params, &circuit).expect("vk should not fail");
+    let pk = keygen_pk(params, vk.clone(), &circuit).expect("keygen_pk should not fail");
+    (pk, vk)
+}
+
+pub fn generate_proof(
+    params: &ParamsKZG<Bn256>,
+    pk: &ProvingKey<G1Affine>,
+    circuit: CollatzCircuit<Fr>,
+    public_input: &Vec<Fr>,
+) -> Vec<u8> {
+    println!("Generating proof...");
+    let mut transcript: Blake2bWrite<Vec<u8>, _, Challenge255<_>> =
+        Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+
+    create_proof::<
+        KZGCommitmentScheme<Bn256>,
+        ProverSHPLONK<'_, Bn256>,
+        Challenge255<_>,
+        _,
+        Blake2bWrite<Vec<u8>, G1Affine, _>,
+        _,
+    >(
+        params,
+        pk,
+        &[circuit],
+        &[&[public_input]],
+        OsRng,
+        &mut transcript,
+    )
+    .expect("Prover should not fail");
+    transcript.finalize()
+}
+
+pub fn verify(
+    params: &ParamsKZG<Bn256>,
+    vk: &VerifyingKey<G1Affine>,
+    proof: &[u8],
+    should_pass: bool,
+) {
+    println!("Verifying proof...");
+    let strategy = SingleStrategy::new(&params);
+    let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
+    let res = verify_proof::<
+        KZGCommitmentScheme<Bn256>,
+        VerifierSHPLONK<'_, Bn256>,
+        Challenge255<G1Affine>,
+        Blake2bRead<&[u8], G1Affine, Challenge255<G1Affine>>,
+        SingleStrategy<'_, Bn256>,
+    >(params, vk, strategy, &[&[]], &mut transcript);
+
+    match should_pass {
+        true => assert!(res.is_ok()),
+        _ => assert!(res.is_err()),
+    }
 }
 
 #[cfg(test)]
@@ -239,11 +343,8 @@ mod test {
 
     #[test]
     fn test_collatz() {
-        let k = 8;
-        let x: Vec<Value<_>> = super::collatz_conjecture(7)
-            .iter()
-            .map(|y: &u64| Value::known(Fp::from(*y)))
-            .collect();
+        let k = 10;
+        let x: [Value<Fp>; 32] = super::collatz_conjecture(7).map(|y| Value::known(Fp::from(y)));
 
         let circuit = CollatzCircuit { x };
 

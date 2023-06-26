@@ -1,21 +1,26 @@
 #[cfg(not(target_family = "wasm"))]
 fn main() {
-    use halo2_proofs::{circuit::Value, halo2curves::pasta::Fp};
-    use halo2_prover::{arithmetic_circuit::*, utils::draw_graph};
-
-    let k = 6;
-
-    let constant = Fp::from(7);
-    let x = Fp::from(6);
-    let y = Fp::from(9);
-    let z = Fp::from(36 * 81 + 8);
-    let mut public_inputs = vec![constant, z];
-
-    let arithmetic_circuit = ArithmeticCircuit {
-        x: Value::known(x),
-        y: Value::known(y),
-        constant,
+    use halo2_proofs::{
+        circuit::Value,
+        halo2curves::{bn256::Fr, pasta::Fp},
+    };
+    use halo2_prover::{
+        arithmetic_circuit::*,
+        collatz::*,
+        utils::{draw_graph, run_mock_prover},
     };
 
-    draw_graph(k, "Arithmetic Circuit".to_string(), arithmetic_circuit);
+    let k = 16;
+
+    let x = generate_sequence(9);
+    let circuit = create_circuit(&x);
+
+    draw_graph(k, "img/collatz.svg".to_string(), &circuit);
+    let res = run_mock_prover(k, &circuit, &vec![]);
+    match res {
+        Ok(()) => println!("Passed!"),
+        _ => println!("didn't pass lol"),
+    }
+
+    let params = generate_params(k);
 }
