@@ -13,6 +13,7 @@ pub struct CollatzConfig {
     witness: Column<Advice>,
     // Normally, you would use `Selector` instead
     is_odd: Column<Advice>,
+    is_one: Column<Advice>,
     selector: Selector,
     final_entry: Selector,
 }
@@ -22,6 +23,7 @@ impl CollatzConfig {
         // create witness column
         let witness = meta.advice_column();
         let is_odd = meta.advice_column();
+        let is_one = meta.advice_column();
         let final_entry = meta.selector();
         let selector = meta.selector();
 
@@ -35,7 +37,7 @@ impl CollatzConfig {
             let sel = meta.query_selector(selector);
 
             vec![
-                sel * ((Expression::Constant(F::from(1)) - is_odd)
+                sel * ((Expression::Constant(F::one()) - is_odd)
                     * (x - Expression::Constant(F::from(2)) * y)),
             ]
         });
@@ -45,13 +47,25 @@ impl CollatzConfig {
             let y = meta.query_advice(witness, Rotation::next());
 
             let is_odd = meta.query_advice(is_odd, Rotation::cur());
+            let is_one = meta.query_advice(is_one, Rotation::cur());
             let sel = meta.query_selector(selector);
 
             vec![
-                sel * (is_odd
-                    * (Expression::Constant(F::from(3)) * x + Expression::Constant(F::from(1))
-                        - y)),
+                sel * (Expression::Constant(F::one()) - is_one)
+                    * (is_odd
+                        * (Expression::Constant(F::from(3)) * x
+                            + Expression::Constant(F::from(1))
+                            - y)),
             ]
+        });
+
+        meta.create_gate("is_one", |meta| {
+            let x = meta.query_advice(witness, Rotation::cur());
+            let y = meta.query_advice(witness, Rotation::next());
+
+            let is_one = meta.query_advice(is_one, Rotation::cur());
+            let sel = meta.query_selector(selector);
+            vec![sel * is_one * ((x.clone() - y) + (x.clone() - Expression::Constant(F::one())))]
         });
 
         meta.create_gate("final_element", |meta| {
@@ -63,6 +77,7 @@ impl CollatzConfig {
         Self {
             witness,
             is_odd,
+            is_one,
             selector,
             final_entry,
         }
@@ -88,6 +103,7 @@ impl<F: FieldExt> CollatzChip<F> {
         entry: Value<Assigned<F>>,
         next: Value<Assigned<F>>,
         is_odd: Value<Assigned<F>>,
+        is_one: Value<Assigned<F>>,
     ) -> Result<
         (
             AssignedCell<Assigned<F>, F>,
@@ -108,6 +124,9 @@ impl<F: FieldExt> CollatzChip<F> {
 
                 let is_odd_cell =
                     region.assign_advice(|| "sel", self.config.is_odd, row, || is_odd)?;
+                let is_one_cell =
+                    region.assign_advice(|| "sel", self.config.is_one, row, || is_one)?;
+
                 Ok((x, y, is_odd_cell))
             },
         )
@@ -162,12 +181,18 @@ impl<F: FieldExt> Circuit<F> for CollatzCircuit<F> {
             let is_odd: Value<Assigned<F>> = self.x[row]
                 .map(|k| F::from(k.is_odd().unwrap_u8() as u64))
                 .into();
+
+            let is_one: Value<Assigned<F>> = self.x[row]
+                .map(|k| F::from((k - F::one()).is_zero().unwrap_u8() as u64))
+                .into();
+
             let (contents, next, is_odd) = chip.assign(
                 layouter.namespace(|| s),
                 row,
                 self.x[row].into(),
                 self.x[row + 1].into(),
                 is_odd,
+                is_one,
             )?;
             // println!(
             // "cell: {:?} \n next: {:?} \nis odd: {:?}\n",
@@ -200,7 +225,9 @@ pub fn collatz_conjecture(mut n: u64) -> Vec<u64> {
         }
         ans.push(n);
     }
-    ans.push(n);
+    for _ in 1..4 {
+        ans.push(1);
+    }
     ans
 }
 
