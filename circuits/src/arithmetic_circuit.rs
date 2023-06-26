@@ -257,32 +257,22 @@ impl<F: Field> Circuit<F> for ArithmeticCircuit<F> {
     }
 }
 
-pub mod draw {
-    use super::*;
-    use halo2_proofs::{
-        circuit::Value,
-        dev::CircuitGates,
-        halo2curves::pasta::{pallas, Fp},
-    };
-}
-
 #[cfg(test)]
 mod test {
     use super::ArithmeticCircuit;
     use halo2_proofs::circuit::Value;
     use halo2_proofs::dev::MockProver;
-    use halo2_proofs::halo2curves::pasta::Fp;
-    // use halo2_proofs::pasta::Fp;
+    use halo2_proofs::halo2curves::bn256::Fr;
 
     #[test]
     fn test() {
         let k = 4;
-        let constant = Fp::from(7);
-        let x = Fp::from(6);
-        let y = Fp::from(9);
-        let z = Fp::from(36 * 81 + 7);
+        let constant = Fr::from(7);
+        let x = Fr::from(6);
+        let y = Fr::from(9);
+        let z = Fr::from(36 * 81 + 7);
 
-        let circuit: ArithmeticCircuit<Fp> = ArithmeticCircuit {
+        let circuit: ArithmeticCircuit<Fr> = ArithmeticCircuit {
             x: Value::known(x),
             y: Value::known(y),
             constant: constant,

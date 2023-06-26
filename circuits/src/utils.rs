@@ -1,15 +1,15 @@
 use std::error::Error;
 
+use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::{
     dev::{CircuitLayout, MockProver},
-    halo2curves::pasta::Fp,
     plonk::Circuit,
     poly::commitment::Params,
 };
 use plotters::prelude::*;
 
 #[cfg(not(target_family = "wasm"))]
-pub fn draw_graph(k: u32, name: String, circuit: &impl Circuit<Fp>) {
+pub fn draw_graph(k: u32, name: String, circuit: &impl Circuit<Fr>) {
     let root = SVGBackend::new(&name, (1024, 768)).into_drawing_area();
     root.fill(&WHITE).unwrap();
     let root = root.titled(&name, ("sans-serif", 30)).unwrap();
@@ -25,8 +25,8 @@ pub fn draw_graph(k: u32, name: String, circuit: &impl Circuit<Fp>) {
 
 pub fn run_mock_prover(
     k: u32,
-    circuit: &impl Circuit<Fp>,
-    public_input: &Vec<Fp>,
+    circuit: &impl Circuit<Fr>,
+    public_input: &Vec<Fr>,
 ) -> Result<(), Vec<halo2_proofs::dev::VerifyFailure>> {
     let pub_inp = {
         if public_input.len() > 0 {

@@ -5,8 +5,7 @@ use halo2_proofs::{
     circuit::{AssignedCell, Cell, Layouter, SimpleFloorPlanner, Value},
     dev::MockProver,
     halo2curves::{
-        bn256::{Bn256, Fr, G1Affine, G1},
-        pasta::Fp,
+        bn256::{Bn256, Fr, G1Affine},
         FieldExt,
     },
     plonk::{
@@ -252,17 +251,11 @@ pub fn collatz_conjecture(mut n: u64) -> [u64; 32] {
     ans
 }
 
-// pub fn empty_circuit() -> CollatzCircuit<Fp> {
-//     CollatzCircuit { x: () }
-// }
-pub fn generate_sequence(n: u64) -> Vec<Fp> {
-    collatz_conjecture(n)
-        .iter()
-        .map(|y: &u64| Fp::from(*y))
-        .collect()
+pub fn generate_sequence(n: u64) -> [Fr; 32] {
+    collatz_conjecture(n).map(|y| Fr::from(y))
 }
 
-pub fn create_circuit(a: &[Fp; 32]) -> CollatzCircuit<Fp> {
+pub fn create_circuit(a: &[Fr; 32]) -> CollatzCircuit<Fr> {
     let x = a.map(|y| Value::known(y));
     CollatzCircuit { x }
 }
@@ -274,9 +267,7 @@ pub fn generate_params(k: u32) -> ParamsKZG<Bn256> {
 pub fn generate_keys(params: &ParamsKZG<Bn256>) -> (ProvingKey<G1Affine>, VerifyingKey<G1Affine>) {
     let circuit = CollatzCircuit {
         x: [Value::unknown(); 32],
-    }
-    .clone()
-    .without_witnesses();
+    };
 
     let vk = keygen_vk(params, &circuit).expect("vk should not fail");
     let pk = keygen_pk(params, vk.clone(), &circuit).expect("keygen_pk should not fail");
@@ -290,6 +281,14 @@ pub fn generate_proof(
     public_input: &Vec<Fr>,
 ) -> Vec<u8> {
     println!("Generating proof...");
+    let public_input: Vec<Fr> = if public_input.len() > 0 {
+        public_input.clone()
+    } else {
+        vec![]
+    };
+
+    println!("Public input: {:?}", public_input);
+
     let mut transcript: Blake2bWrite<Vec<u8>, _, Challenge255<_>> =
         Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
 
@@ -300,14 +299,7 @@ pub fn generate_proof(
         _,
         Blake2bWrite<Vec<u8>, G1Affine, _>,
         _,
-    >(
-        params,
-        pk,
-        &[circuit],
-        &[&[public_input]],
-        OsRng,
-        &mut transcript,
-    )
+    >(params, pk, &[circuit], &[&[]], OsRng, &mut transcript)
     .expect("Prover should not fail");
     transcript.finalize()
 }
@@ -315,41 +307,44 @@ pub fn generate_proof(
 pub fn verify(
     params: &ParamsKZG<Bn256>,
     vk: &VerifyingKey<G1Affine>,
-    proof: &[u8],
+    proof: &Vec<u8>,
     should_pass: bool,
-) {
+) -> Result<(), Error> {
     println!("Verifying proof...");
     let strategy = SingleStrategy::new(&params);
     let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
-    let res = verify_proof::<
+    verify_proof::<
         KZGCommitmentScheme<Bn256>,
         VerifierSHPLONK<'_, Bn256>,
         Challenge255<G1Affine>,
         Blake2bRead<&[u8], G1Affine, Challenge255<G1Affine>>,
         SingleStrategy<'_, Bn256>,
-    >(params, vk, strategy, &[&[]], &mut transcript);
-
-    match should_pass {
-        true => assert!(res.is_ok()),
-        _ => assert!(res.is_err()),
-    }
+    >(params, vk, strategy, &[&[]], &mut transcript)
 }
 
 #[cfg(test)]
 mod test {
-    use halo2_proofs::{circuit::Value, dev::MockProver, halo2curves::pasta::Fp};
+    use halo2_proofs::{circuit::Value, dev::MockProver, halo2curves::bn256::Fr};
+
+    use crate::collatz::collatz_conjecture;
 
     use super::CollatzCircuit;
 
     #[test]
     fn test_collatz() {
         let k = 10;
-        let x: [Value<Fp>; 32] = super::collatz_conjecture(7).map(|y| Value::known(Fp::from(y)));
+        let x: [Value<Fr>; 32] = super::collatz_conjecture(7).map(|y| Value::known(Fr::from(y)));
 
         let circuit = CollatzCircuit { x };
 
         MockProver::run(k, &circuit, vec![])
             .unwrap()
             .assert_satisfied();
+    }
+
+    #[test]
+    fn print_collatz() {
+        let n = 7;
+        println!("{:?}", collatz_conjecture(n));
     }
 }
