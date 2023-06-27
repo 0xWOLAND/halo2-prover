@@ -7,6 +7,7 @@ use halo2_proofs::{
     poly::commitment::Params,
 };
 use plotters::prelude::*;
+use wasm_bindgen::prelude::wasm_bindgen;
 
 #[cfg(not(target_family = "wasm"))]
 pub fn draw_graph(k: u32, name: String, circuit: &impl Circuit<Fr>) {
@@ -38,4 +39,9 @@ pub fn run_mock_prover(
     let prover = MockProver::run(k, circuit, pub_inp).expect("Mock prover should run");
 
     prover.verify()
+}
+
+#[wasm_bindgen]
+pub fn hello_world() -> String {
+    "Hello World from Rust!".to_string()
 }
