@@ -5,7 +5,7 @@ export const HelloWorld = () => {
   const ctx = useContext(WASMContext);
 
   if (!ctx.wasm) {
-    console.log("this shit is not working!");
+    console.log("this is not working!");
     return <>ahahhh</>;
   }
 
