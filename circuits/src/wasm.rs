@@ -5,7 +5,7 @@ use crate::{
 use halo2_proofs::{
     circuit::Value,
     halo2curves::bn256::{Bn256, Fr, G1Affine},
-    plonk::{keygen_pk, keygen_vk, ProvingKey, VerifyingKey},
+    plonk::{keygen_pk, keygen_vk, Circuit, ProvingKey, VerifyingKey},
     poly::{commitment::Params, kzg::commitment::ParamsKZG},
 };
 use js_sys::Uint8Array;
@@ -39,7 +39,7 @@ pub fn setup(k: u32) -> Uint8Array {
 
 pub fn wasm_generate_keys(
     params: &ParamsKZG<Bn256>,
-    circuit: CollatzCircuit<Fr>,
+    circuit: impl Circuit<Fr>,
 ) -> (ProvingKey<G1Affine>, VerifyingKey<G1Affine>) {
     panic::set_hook(Box::new(console_error_panic_hook::hook));
     let vk = keygen_vk(params, &circuit).expect("vk should not fail");

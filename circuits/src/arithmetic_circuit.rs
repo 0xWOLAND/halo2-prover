@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use halo2_proofs::{
     arithmetic::Field,
     circuit::{Cell, Layouter, SimpleFloorPlanner, Value},
+    halo2curves::bn256::Fr,
     plonk::{Advice, Assigned, Circuit, Column, ConstraintSystem, Error, Fixed, Instance},
     poly::Rotation,
 };
@@ -254,6 +255,22 @@ impl<F: Field> Circuit<F> for ArithmeticCircuit<F> {
         cs.expose_public(&mut layouter, c3, 1)?;
 
         Ok(())
+    }
+}
+
+pub fn create_circuit(x: u64, y: u64, constant: u64) -> ArithmeticCircuit<Fr> {
+    let x = Value::known(Fr::from(x));
+    let y = Value::known(Fr::from(y));
+    let constant = Fr::from(constant);
+
+    ArithmeticCircuit { x, y, constant }
+}
+
+pub fn empty_circuit() -> ArithmeticCircuit<Fr> {
+    ArithmeticCircuit {
+        x: Value::unknown(),
+        y: Value::unknown(),
+        constant: Fr::from(0),
     }
 }
 

@@ -1,16 +1,23 @@
 import { useContext, useState } from "react";
 import { WASMContext } from "../context/wasm";
+import { InputField } from "./Input";
 
 export const Halo2Circuits = () => {
   return (
-    <div className="h-full ">
-      <img src="collatz.svg" className="h-full " />
+    <div className="h-full flex items-start">
+      <img src="collatz.svg" />
     </div>
   );
 };
 export const Proof = () => {
   const [isValidProof, setIsValidProof] = useState(false);
+  const [input, setInput] = useState("");
+
   const ctx = useContext(WASMContext);
+
+  if (!ctx.wasm) {
+    return <></>;
+  }
 
   const getLocalItem = (s: string) => {
     return Uint8Array.from(
@@ -37,9 +44,20 @@ export const Proof = () => {
     const isValid: boolean = ctx.wasm.wasm_verify_proof(setup_params, proof);
     setIsValidProof(isValid);
   };
+  const json_entry =
+    '{ "name": "John Doe", "age": 43, "phones": [ "+44 1234567", "+44 2345678" ] }';
 
   return (
     <div className="columns-1">
+      <div className="mb-6 ">
+        <textarea
+          id="input_field"
+          className="max-h-96 h-60 block w-full p-2.5 text-sm text-gray-50 bg-gray-700 rounded-lg border border-gray-300"
+          onChange={(e) => setInput(e.target.value)}
+        >
+          {json_entry}
+        </textarea>
+      </div>
       <div id="proofResult">{isValidProof ? "yes" : "no"}</div>
       <div className="container mx-auto">
         <button
