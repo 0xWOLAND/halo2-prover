@@ -47,23 +47,17 @@ pub fn wasm_generate_keys(
 
 #[wasm_bindgen]
 pub fn wasm_generate_proof(_params: &[u8], _sequence: &[u8]) -> Uint8Array {
-    log("HEREs");
     let mut sequence: Vec<u64> = _sequence.to_vec().iter().map(|k| *k as u64).collect();
     sequence.resize(32, 1);
     log(&format!("{:?}", sequence));
     log(&format!("{}", sequence.len()));
-    log("here 1  boi");
     let circuit = create_circuit(sequence);
-    log("here 3 ");
     // let params = ParamsKZG::<Bn256>::read(&mut BufReader::new(_params))
     // .expect("should be able to read params");
 
     let params = generate_params(7);
-    log("here 4 ");
     let empty_circuit = empty_circuit();
-    log("here 5 ");
     let (pk, vk) = wasm_generate_keys(&params, empty_circuit);
-    log("here 6 ");
 
     to_uint8_array(generate_proof(&params, &pk, circuit, &vec![]))
 }
