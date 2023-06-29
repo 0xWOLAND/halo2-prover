@@ -12,6 +12,7 @@ use js_sys::Uint8Array;
 use std::{
     cmp::min,
     io::{empty, BufReader},
+    panic,
 };
 use wasm_bindgen::prelude::*;
 
@@ -40,6 +41,7 @@ pub fn wasm_generate_keys(
     params: &ParamsKZG<Bn256>,
     circuit: CollatzCircuit<Fr>,
 ) -> (ProvingKey<G1Affine>, VerifyingKey<G1Affine>) {
+    panic::set_hook(Box::new(console_error_panic_hook::hook));
     let vk = keygen_vk(params, &circuit).expect("vk should not fail");
     let pk = keygen_pk(params, vk.clone(), &circuit).expect("keygen_pk should not fail");
     (pk, vk)
@@ -55,7 +57,7 @@ pub fn wasm_generate_proof(_params: &[u8], _sequence: &[u8]) -> Uint8Array {
     // let params = ParamsKZG::<Bn256>::read(&mut BufReader::new(_params))
     // .expect("should be able to read params");
 
-    let params = generate_params(7);
+    let params = generate_params(10);
     let empty_circuit = empty_circuit();
     let (pk, vk) = wasm_generate_keys(&params, empty_circuit);
 
@@ -64,14 +66,22 @@ pub fn wasm_generate_proof(_params: &[u8], _sequence: &[u8]) -> Uint8Array {
 
 #[wasm_bindgen]
 pub fn wasm_verify_proof(_params: &[u8], proof: &[u8]) -> bool {
-    let params = ParamsKZG::<Bn256>::read(&mut BufReader::new(_params))
-        .expect("should be able to read params");
+    // let params = ParamsKZG::<Bn256>::read(&mut BufReader::new(_params))
+    //     .expect("should be able to read params");
+    let mut sequence = collatz_conjecture(5);
+    let circuit = create_circuit(sequence);
     let empty_circuit = empty_circuit();
+
+    let params = generate_params(10);
     let (pk, vk) = generate_keys(&params, empty_circuit);
+    let proof = generate_proof(&params, &pk, circuit, &vec![]);
 
     let res = verify(&params, &vk, &proof.to_vec());
     match res {
-        Err(_) => false,
+        Err(e) => {
+            log(&format!("{}", e));
+            false
+        }
         _ => true,
     }
 }

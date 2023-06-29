@@ -21,11 +21,16 @@ export const Proof = () => {
     return <>ahahhh</>;
   }
 
-  const setup_params = ctx.wasm.setup(8);
+  const setup_params = ctx.wasm.setup(10);
   const sequence = Uint8Array.from([5, 16, 8, 4, 2, 1]);
+  console.log("Sequence");
   console.log(sequence);
   const proof = ctx.wasm.wasm_generate_proof(setup_params, sequence);
+  console.log("Proof");
   console.log(proof);
+  const isValid = ctx.wasm.wasm_verify_proof(setup_params, proof);
+  console.log("isValid");
+  console.log(isValid);
 
   return (
     <div className="columns-1">
