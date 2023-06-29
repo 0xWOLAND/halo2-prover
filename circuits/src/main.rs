@@ -13,12 +13,12 @@ fn main() {
     draw_graph(k, "img/collatz.svg".to_string(), &circuit);
     let res = run_mock_prover(k, &circuit, &vec![]);
 
-    // let params = generate_params(k);
-    //
-    // let empty_circuit = empty_circuit();
-    // let (pk, vk) = generate_keys(&params, empty_circuit);
-    //
-    // let proof = generate_proof(&params, &pk, circuit, &vec![]);
-    // let res = verify(&params, &vk, &proof);
+    let params = generate_params(k);
+
+    let empty_circuit = empty_circuit();
+    let (pk, vk) = generate_keys(&params, empty_circuit);
+
+    let proof = generate_proof(&params, &pk, circuit, &vec![]);
+    let res = verify(&params, &vk, &proof);
     println!("RES: {:?}", res);
 }

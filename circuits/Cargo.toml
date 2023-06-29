@@ -13,7 +13,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 gloo = "0.8"
-halo2_proofs = { git = "https://github.com/halo2-ce/halo2.git",  features = ["dev-graph"] }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git",features = ["dev-graph"] }
 plotters = "0.3.4"
 rand_core = "0.6.4"
 serde = { version = "1.0.156", features = ["derive"] }

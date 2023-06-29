@@ -95,8 +95,8 @@ impl<F: Field> ArithmeticInstructions<F> for ArithmeticChip<F> {
                     || values.unwrap().map(|v| v.2),
                 )?;
 
-                region.assign_fixed(|| "m", self.config.sm, 0, || Value::known(F::one()))?;
-                region.assign_fixed(|| "o", self.config.so, 0, || Value::known(F::one()))?;
+                region.assign_fixed(|| "m", self.config.sm, 0, || Value::known(F::ONE))?;
+                region.assign_fixed(|| "o", self.config.so, 0, || Value::known(F::ONE))?;
 
                 Ok((lhs.cell(), rhs.cell(), out.cell()))
             },
@@ -136,9 +136,9 @@ impl<F: Field> ArithmeticInstructions<F> for ArithmeticChip<F> {
                     || values.unwrap().map(|v| v.2),
                 )?;
 
-                region.assign_fixed(|| "l", self.config.sl, 0, || Value::known(F::one()))?;
-                region.assign_fixed(|| "r", self.config.sr, 0, || Value::known(F::one()))?;
-                region.assign_fixed(|| "o", self.config.so, 0, || Value::known(F::one()))?;
+                region.assign_fixed(|| "l", self.config.sl, 0, || Value::known(F::ONE))?;
+                region.assign_fixed(|| "r", self.config.sr, 0, || Value::known(F::ONE))?;
+                region.assign_fixed(|| "o", self.config.so, 0, || Value::known(F::ONE))?;
 
                 Ok((lhs.cell(), rhs.cell(), out.cell()))
             },
@@ -203,7 +203,7 @@ impl<F: Field> Circuit<F> for ArithmeticCircuit<F> {
             let sm = meta.query_fixed(sm, Rotation::cur());
             let sc = meta.query_fixed(sc, Rotation::cur());
 
-            vec![l.clone() * sl + r.clone() * sr + l * r * sm + (o * so * (-F::one())) + sc]
+            vec![l.clone() * sl + r.clone() * sr + l * r * sm + (o * so * (-F::ONE)) + sc]
         });
 
         ArithmeticConfig {

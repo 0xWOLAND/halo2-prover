@@ -1,12 +1,10 @@
-use std::marker::PhantomData;
-
-// use crate::utils
 use halo2_proofs::{
     circuit::{AssignedCell, Cell, Layouter, SimpleFloorPlanner, Value},
-    halo2curves::{bn256::Fr, FieldExt},
+    halo2curves::{bn256::Fr, ff::PrimeField},
     plonk::{Advice, Assigned, Circuit, Column, ConstraintSystem, Error, Expression, Selector},
     poly::Rotation,
 };
+use std::marker::PhantomData;
 
 #[derive(Clone, Copy, Debug)]
 pub struct CollatzConfig {
@@ -19,7 +17,7 @@ pub struct CollatzConfig {
 }
 
 impl CollatzConfig {
-    pub fn configure<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
+    pub fn configure<F: PrimeField>(meta: &mut ConstraintSystem<F>) -> Self {
         // create witness column
         let witness = meta.advice_column();
         let is_odd = meta.advice_column();
@@ -37,7 +35,7 @@ impl CollatzConfig {
             let sel = meta.query_selector(selector);
 
             vec![
-                sel * ((Expression::Constant(F::one()) - is_odd)
+                sel * ((Expression::Constant(F::ONE) - is_odd)
                     * (x - Expression::Constant(F::from(2)) * y)),
             ]
         });
@@ -51,7 +49,7 @@ impl CollatzConfig {
             let sel = meta.query_selector(selector);
 
             vec![
-                sel * (Expression::Constant(F::one()) - is_one)
+                sel * (Expression::Constant(F::ONE) - is_one)
                     * (is_odd
                         * (Expression::Constant(F::from(3)) * x
                             + Expression::Constant(F::from(1))
@@ -65,7 +63,7 @@ impl CollatzConfig {
 
             let is_one = meta.query_advice(is_one, Rotation::cur());
             let sel = meta.query_selector(selector);
-            vec![sel * is_one * ((x.clone() - y) + (x.clone() - Expression::Constant(F::one())))]
+            vec![sel * is_one * ((x.clone() - y) + (x.clone() - Expression::Constant(F::ONE)))]
         });
 
         meta.create_gate("final_element", |meta| {
@@ -83,12 +81,12 @@ impl CollatzConfig {
         }
     }
 }
-pub struct CollatzChip<F: FieldExt> {
+pub struct CollatzChip<F: PrimeField> {
     config: CollatzConfig,
     marker: PhantomData<F>,
 }
 
-impl<F: FieldExt> CollatzChip<F> {
+impl<F: PrimeField> CollatzChip<F> {
     pub fn new(config: CollatzConfig) -> Self {
         Self {
             config,
@@ -150,11 +148,11 @@ impl<F: FieldExt> CollatzChip<F> {
 }
 
 #[derive(Clone, Default)]
-pub struct CollatzCircuit<F: FieldExt> {
+pub struct CollatzCircuit<F: PrimeField> {
     pub x: [Value<F>; 32],
 }
 
-impl<F: FieldExt> Circuit<F> for CollatzCircuit<F> {
+impl<F: PrimeField> Circuit<F> for CollatzCircuit<F> {
     type Config = CollatzConfig;
     type FloorPlanner = SimpleFloorPlanner;
 
@@ -173,7 +171,7 @@ impl<F: FieldExt> Circuit<F> for CollatzCircuit<F> {
     ) -> Result<(), Error> {
         let mut chip: CollatzChip<F> = CollatzChip::new(config);
         let nrows = self.x.len();
-        let one: Value<Assigned<F>> = Value::known(F::one()).into();
+        let one: Value<Assigned<F>> = Value::known(F::ONE).into();
 
         for row in 0..(nrows - 1) {
             let s = format!("Collatz({})", row);
@@ -182,7 +180,7 @@ impl<F: FieldExt> Circuit<F> for CollatzCircuit<F> {
                 .into();
 
             let is_one: Value<Assigned<F>> = self.x[row]
-                .map(|k| F::from((k - F::one()).is_zero().unwrap_u8() as u64))
+                .map(|k| F::from((k - F::ONE).is_zero().unwrap_u8() as u64))
                 .into();
 
             let (_contents, next, is_odd) = chip.assign(
@@ -252,7 +250,7 @@ mod test {
     #[test]
     fn test_collatz() {
         let k = 10;
-        let x = collatz_conjecture(7);
+        let x = collatz_conjecture(9);
 
         let circuit = create_circuit(x);
 

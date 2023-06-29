@@ -9,7 +9,10 @@ use halo2_proofs::{
     poly::{commitment::Params, kzg::commitment::ParamsKZG},
 };
 use js_sys::Uint8Array;
-use std::{cmp::min, io::BufReader};
+use std::{
+    cmp::min,
+    io::{empty, BufReader},
+};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -37,11 +40,8 @@ pub fn wasm_generate_keys(
     params: &ParamsKZG<Bn256>,
     circuit: CollatzCircuit<Fr>,
 ) -> (ProvingKey<G1Affine>, VerifyingKey<G1Affine>) {
-    log("WASM GENERATE KEY ");
     let vk = keygen_vk(params, &circuit).expect("vk should not fail");
-    log("vk key good");
     let pk = keygen_pk(params, vk.clone(), &circuit).expect("keygen_pk should not fail");
-    log("pk key good");
     (pk, vk)
 }
 
