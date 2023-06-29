@@ -66,8 +66,8 @@ pub fn wasm_generate_proof(_params: &[u8], _sequence: &[u8]) -> Uint8Array {
 
 #[wasm_bindgen]
 pub fn wasm_verify_proof(_params: &[u8], proof: &[u8]) -> bool {
-    // let params = ParamsKZG::<Bn256>::read(&mut BufReader::new(_params))
-    //     .expect("should be able to read params");
+    let _params = ParamsKZG::<Bn256>::read(&mut BufReader::new(_params))
+        .expect("should be able to read params");
     let mut sequence = collatz_conjecture(5);
     let circuit = create_circuit(sequence);
     let empty_circuit = empty_circuit();
