@@ -120,7 +120,6 @@ impl<F: FieldExt> CollatzChip<F> {
                 let x = region.assign_advice(|| "x", self.config.witness, row, || entry)?;
                 let y = region.assign_advice(|| "y", self.config.witness, row + 1, || next)?;
                 let a: Value<Assigned<F>> = Value::known(F::from(2)).into();
-                println!("{:?} -> {:?}", entry, is_odd);
 
                 let is_odd_cell =
                     region.assign_advice(|| "sel", self.config.is_odd, row, || is_odd)?;
@@ -186,7 +185,7 @@ impl<F: FieldExt> Circuit<F> for CollatzCircuit<F> {
                 .map(|k| F::from((k - F::one()).is_zero().unwrap_u8() as u64))
                 .into();
 
-            let (contents, next, is_odd) = chip.assign(
+            let (_contents, next, is_odd) = chip.assign(
                 layouter.namespace(|| s),
                 row,
                 self.x[row].into(),
@@ -194,21 +193,13 @@ impl<F: FieldExt> Circuit<F> for CollatzCircuit<F> {
                 is_odd,
                 is_one,
             )?;
-            // println!(
-            // "cell: {:?} \n next: {:?} \nis odd: {:?}\n",
-            // contents.value(),
-            // next.value(),
-            // is_odd.value()
-            // );
-            // println!("-------------------------------");
         }
 
-        let out_cell = chip.assign_last(
+        let _ = chip.assign_last(
             layouter.namespace(|| "out"),
             nrows - 1,
             self.x[nrows - 1].into(),
         )?;
-        println!("out cell: {:?}", self.x[nrows - 1]);
 
         Ok(())
     }
@@ -216,11 +207,10 @@ impl<F: FieldExt> Circuit<F> for CollatzCircuit<F> {
 
 // Utils
 
-pub fn collatz_conjecture(mut n: u64) -> [u64; 32] {
-    let mut ans: [u64; 32] = [1; 32];
-    let mut i = 0;
-    ans[i] = n;
-    i += 1;
+pub fn collatz_conjecture(mut n: u64) -> Vec<u64> {
+    let mut ans = vec![];
+    ans.push(n);
+    let mut i = 1;
 
     while n > 1 && i < 32 {
         if n & 1 > 0 {
@@ -228,18 +218,22 @@ pub fn collatz_conjecture(mut n: u64) -> [u64; 32] {
         } else {
             n /= 2;
         }
-        ans[i] = n;
+        ans.push(n);
         i += 1;
     }
+    ans.resize(32, 1);
     ans
 }
 
-pub fn generate_sequence(n: u64) -> [Fr; 32] {
-    collatz_conjecture(n).map(|y| Fr::from(y))
-}
+pub fn create_circuit(a: Vec<u64>) -> CollatzCircuit<Fr> {
+    let x: [Value<Fr>; 32] = a
+        .clone()
+        .iter()
+        .map(|f| Value::known(Fr::from(*f)))
+        .collect::<Vec<Value<Fr>>>()
+        .try_into()
+        .unwrap();
 
-pub fn create_circuit(a: &[Fr; 32]) -> CollatzCircuit<Fr> {
-    let x = a.map(|y| Value::known(y));
     CollatzCircuit { x }
 }
 pub fn empty_circuit() -> CollatzCircuit<Fr> {
@@ -253,14 +247,14 @@ mod test {
 
     use crate::collatz::collatz_conjecture;
 
-    use super::CollatzCircuit;
+    use super::{create_circuit, CollatzCircuit};
 
     #[test]
     fn test_collatz() {
         let k = 10;
-        let x: [Value<Fr>; 32] = super::collatz_conjecture(7).map(|y| Value::known(Fr::from(y)));
+        let x = collatz_conjecture(7);
 
-        let circuit = CollatzCircuit { x };
+        let circuit = create_circuit(x);
 
         MockProver::run(k, &circuit, vec![])
             .unwrap()

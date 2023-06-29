@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "yarn build:wasm && next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "build:svg": "cd circuits && cargo run && cp img/*.svg ../public",
     "build:wasm": "cd circuits && wasm-pack build --target web --out-dir ../src/lib/wasm && cd .."
   },
   "dependencies": {
