@@ -51,13 +51,10 @@ pub fn wasm_generate_keys(
 pub fn wasm_generate_proof(_params: &[u8], _sequence: &[u8]) -> Uint8Array {
     let mut sequence: Vec<u64> = _sequence.to_vec().iter().map(|k| *k as u64).collect();
     sequence.resize(32, 1);
-    log(&format!("{:?}", sequence));
-    log(&format!("{}", sequence.len()));
     let circuit = create_circuit(sequence);
-    // let params = ParamsKZG::<Bn256>::read(&mut BufReader::new(_params))
-    // .expect("should be able to read params");
+    let params = ParamsKZG::<Bn256>::read(&mut BufReader::new(_params))
+        .expect("should be able to read params");
 
-    let params = generate_params(10);
     let empty_circuit = empty_circuit();
     let (pk, vk) = wasm_generate_keys(&params, empty_circuit);
 
@@ -66,15 +63,11 @@ pub fn wasm_generate_proof(_params: &[u8], _sequence: &[u8]) -> Uint8Array {
 
 #[wasm_bindgen]
 pub fn wasm_verify_proof(_params: &[u8], proof: &[u8]) -> bool {
-    let _params = ParamsKZG::<Bn256>::read(&mut BufReader::new(_params))
+    let params = ParamsKZG::<Bn256>::read(&mut BufReader::new(_params))
         .expect("should be able to read params");
-    let mut sequence = collatz_conjecture(5);
-    let circuit = create_circuit(sequence);
     let empty_circuit = empty_circuit();
 
-    let params = generate_params(10);
     let (pk, vk) = generate_keys(&params, empty_circuit);
-    let proof = generate_proof(&params, &pk, circuit, &vec![]);
 
     let res = verify(&params, &vk, &proof.to_vec());
     match res {
