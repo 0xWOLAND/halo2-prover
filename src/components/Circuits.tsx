@@ -1,10 +1,16 @@
 import { useContext, useState } from "react";
 import { WASMContext } from "../context/wasm";
+import Image from "next/image";
+import ArithmeticCircuit from "../../public/collatz.svg";
 
 export const Halo2Circuits = () => {
   return (
     <div className="h-full flex items-start">
-      <img src="collatz.svg" />
+      <Image
+        className="shadow-slate-600 shadow-sm m-1"
+        src={ArithmeticCircuit}
+        alt="Collatz Arithmetic Circuit"
+      />
     </div>
   );
 };
@@ -14,9 +20,7 @@ export const Proof = () => {
 
   const ctx = useContext(WASMContext);
 
-  if (!ctx.wasm) {
-    return <></>;
-  }
+  const wasm = ctx.wasm!;
 
   const getLocalItem = (s: string) => {
     return Uint8Array.from(
@@ -25,7 +29,7 @@ export const Proof = () => {
   };
 
   const setupParams = () => {
-    localStorage.setItem("setup_params", ctx.wasm.setup(10));
+    localStorage.setItem("setup_params", wasm.setup(10).join(","));
   };
 
   const wasmGenerateProof = () => {
@@ -36,14 +40,14 @@ export const Proof = () => {
     // const sequence = "{'x': '5', '1"
     localStorage.setItem(
       "proof",
-      ctx.wasm.wasm_generate_proof(setup_params, sequence)
+      wasm.wasm_generate_proof(setup_params, sequence).join(",")
     );
   };
 
   const wasmVerifyProof = () => {
     const setup_params = getLocalItem("setup_params");
     const proof = getLocalItem("proof");
-    const isValid: boolean = ctx.wasm.wasm_verify_proof(setup_params, proof);
+    const isValid: boolean = wasm.wasm_verify_proof(setup_params, proof);
     setIsValidProof(isValid);
   };
 
@@ -54,7 +58,7 @@ export const Proof = () => {
           id="input_field"
           className="max-h-96 h-60 block w-full p-2.5 text-sm text-gray-50 bg-gray-700 rounded-lg border border-gray-300"
           onChange={(e) => setInput(e.target.value)}
-          placeholder="{ 'x': [5, 16, 8, 4, 2, 1, 1]}"
+          placeholder='{ "x": [5, 16, 8, 4, 2, 1, 1]}'
         ></textarea>
       </div>
       <div id="proofResult">{isValidProof ? "yes" : "no"}</div>
