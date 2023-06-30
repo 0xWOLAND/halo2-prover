@@ -46,6 +46,35 @@ function addHeapObject(obj) {
     heap[idx] = obj;
     return idx;
 }
+
+let cachedInt32Memory0 = null;
+
+function getInt32Memory0() {
+    if (cachedInt32Memory0 === null || cachedInt32Memory0.byteLength === 0) {
+        cachedInt32Memory0 = new Int32Array(wasm.memory.buffer);
+    }
+    return cachedInt32Memory0;
+}
+/**
+* @returns {string}
+*/
+export function hello_world() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        wasm.hello_world(retptr);
+        var r0 = getInt32Memory0()[retptr / 4 + 0];
+        var r1 = getInt32Memory0()[retptr / 4 + 1];
+        deferred1_0 = r0;
+        deferred1_1 = r1;
+        return getStringFromWasm0(r0, r1);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
 /**
 * @param {number} k
 * @returns {Uint8Array}
@@ -119,14 +148,15 @@ function passStringToWasm0(arg, malloc, realloc) {
 /**
 * @param {Uint8Array} _params
 * @param {string} s
+* @param {number} circuit
 * @returns {Uint8Array}
 */
-export function wasm_generate_proof(_params, s) {
+export function wasm_generate_proof(_params, s, circuit) {
     const ptr0 = passArray8ToWasm0(_params, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
     const ptr1 = passStringToWasm0(s, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.wasm_generate_proof(ptr0, len0, ptr1, len1);
+    const ret = wasm.wasm_generate_proof(ptr0, len0, ptr1, len1, circuit);
     return takeObject(ret);
 }
 
@@ -144,13 +174,12 @@ export function wasm_verify_proof(_params, proof) {
     return ret !== 0;
 }
 
-let cachedInt32Memory0 = null;
-
-function getInt32Memory0() {
-    if (cachedInt32Memory0 === null || cachedInt32Memory0.byteLength === 0) {
-        cachedInt32Memory0 = new Int32Array(wasm.memory.buffer);
-    }
-    return cachedInt32Memory0;
+/**
+* @returns {number}
+*/
+export function get_circuit_count() {
+    const ret = wasm.get_circuit_count();
+    return ret;
 }
 
 function handleError(f, args) {

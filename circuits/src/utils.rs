@@ -116,3 +116,8 @@ pub fn verify(
         SingleStrategy<'_, Bn256>,
     >(params, vk, strategy, &[&[]], &mut transcript)
 }
+
+#[wasm_bindgen]
+pub fn hello_world() -> String {
+    "Hello World from Rust!".to_string()
+}

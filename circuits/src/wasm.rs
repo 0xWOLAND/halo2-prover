@@ -14,6 +14,8 @@ use std::{
     io::{empty, BufReader},
     panic,
 };
+
+// Use a struct that impl's these functions and has a `getCurrentCircuit` function
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -48,7 +50,7 @@ pub fn wasm_generate_keys(
 }
 
 #[wasm_bindgen]
-pub fn wasm_generate_proof(_params: &[u8], s: &str) -> Uint8Array {
+pub fn wasm_generate_proof(_params: &[u8], s: &str, circuit: i32) -> Uint8Array {
     panic::set_hook(Box::new(console_error_panic_hook::hook));
     let v: CollatzInput = serde_json::from_str(s).unwrap();
     // let _sequence: Vec<u64> = v.x.iter().map(|k| k.parse::<u64>().unwrap()).collect();
@@ -83,4 +85,9 @@ pub fn wasm_verify_proof(_params: &[u8], proof: &[u8]) -> bool {
         }
         _ => true,
     }
+}
+
+#[wasm_bindgen]
+pub fn get_circuit_count() -> i32 {
+    2
 }

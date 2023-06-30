@@ -1,19 +1,54 @@
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { WASMContext } from "../context/wasm";
 import Image from "next/image";
-import ArithmeticCircuit from "../../public/collatz.svg";
+import ArithmeticCircuit from "../../public/arithmetic_circuit.svg";
+import CollatzCircuit from "../../public/collatz.svg";
 
+// set current circuit in local storage
+// every time you switch it clears local storage
 export const Halo2Circuits = () => {
+  const ctx = useContext(WASMContext);
+  const wasm = ctx.wasm!;
+  const [circuitIndex, setCircuitIndex] = useState(0);
+
+  const images = [CollatzCircuit, ArithmeticCircuit];
+
+  useEffect(() => {
+    localStorage.setItem("circuit_index", circuitIndex.toString());
+  });
+
+  const handleSwitch = (e: number) => {
+    setCircuitIndex(
+      (circuitIndex + e + wasm.get_circuit_count()) % wasm.get_circuit_count()
+    );
+    localStorage.setItem("circuit_index", circuitIndex.toString());
+  };
+
   return (
-    <div className="h-full flex items-start">
+    <div className="h-full columns-1 items-start ">
       <Image
         className="shadow-slate-600 shadow-sm m-1"
-        src={ArithmeticCircuit}
+        src={images[circuitIndex]}
         alt="Collatz Arithmetic Circuit"
       />
+      <div className="flex justify-center">
+        <button
+          className="rounded-md bg-orange-300 m-2 py-1.5 px-2 text-slate-950"
+          onClick={() => handleSwitch(-1)}
+        >
+          &lt;-
+        </button>
+        <button
+          className="rounded-md bg-orange-300 m-2 py-1.5 px-2 text-slate-950"
+          onClick={() => handleSwitch(1)}
+        >
+          -&gt;
+        </button>
+      </div>
     </div>
   );
 };
+
 export const Proof = () => {
   const [isValidProof, setIsValidProof] = useState(false);
   const [input, setInput] = useState('{ "x": [5, 16, 8, 4, 2, 1]}');
@@ -30,17 +65,18 @@ export const Proof = () => {
 
   const setupParams = () => {
     localStorage.setItem("setup_params", wasm.setup(10).join(","));
+    console.log(wasm.hello_world());
   };
 
   const wasmGenerateProof = () => {
     const setup_params = getLocalItem("setup_params");
-    // console.log("PARSING: ", JSON.parse(input));
     const sequence = JSON.stringify(JSON.parse(input));
-    // const sequence = '{ "x" : [5, 16, 8, 4, 2, 1]}';
-    // const sequence = "{'x': '5', '1"
+    const circuit_index = parseInt(
+      localStorage.getItem("circuit_index") as string
+    );
     localStorage.setItem(
       "proof",
-      wasm.wasm_generate_proof(setup_params, sequence).join(",")
+      wasm.wasm_generate_proof(setup_params, sequence, circuit_index).join(",")
     );
   };
 
