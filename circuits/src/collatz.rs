@@ -4,6 +4,7 @@ use halo2_proofs::{
     plonk::{Advice, Assigned, Circuit, Column, ConstraintSystem, Error, Expression, Selector},
     poly::Rotation,
 };
+use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
 #[derive(Clone, Copy, Debug)]
@@ -14,6 +15,11 @@ pub struct CollatzConfig {
     is_one: Column<Advice>,
     selector: Selector,
     final_entry: Selector,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CollatzInput {
+    pub x: Vec<u64>,
 }
 
 impl CollatzConfig {

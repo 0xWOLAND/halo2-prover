@@ -1,6 +1,5 @@
 import { useContext, useState } from "react";
 import { WASMContext } from "../context/wasm";
-import { InputField } from "./Input";
 
 export const Halo2Circuits = () => {
   return (
@@ -11,7 +10,7 @@ export const Halo2Circuits = () => {
 };
 export const Proof = () => {
   const [isValidProof, setIsValidProof] = useState(false);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('{ "x": [5, 16, 8, 4, 2, 1]}');
 
   const ctx = useContext(WASMContext);
 
@@ -31,7 +30,10 @@ export const Proof = () => {
 
   const wasmGenerateProof = () => {
     const setup_params = getLocalItem("setup_params");
-    const sequence = Uint8Array.from([5, 16, 8, 4, 2, 1]);
+    // console.log("PARSING: ", JSON.parse(input));
+    const sequence = JSON.stringify(JSON.parse(input));
+    // const sequence = '{ "x" : [5, 16, 8, 4, 2, 1]}';
+    // const sequence = "{'x': '5', '1"
     localStorage.setItem(
       "proof",
       ctx.wasm.wasm_generate_proof(setup_params, sequence)
@@ -44,8 +46,6 @@ export const Proof = () => {
     const isValid: boolean = ctx.wasm.wasm_verify_proof(setup_params, proof);
     setIsValidProof(isValid);
   };
-  const json_entry =
-    '{ "name": "John Doe", "age": 43, "phones": [ "+44 1234567", "+44 2345678" ] }';
 
   return (
     <div className="columns-1">
@@ -54,9 +54,8 @@ export const Proof = () => {
           id="input_field"
           className="max-h-96 h-60 block w-full p-2.5 text-sm text-gray-50 bg-gray-700 rounded-lg border border-gray-300"
           onChange={(e) => setInput(e.target.value)}
-        >
-          {json_entry}
-        </textarea>
+          placeholder="{ 'x': [5, 16, 8, 4, 2, 1, 1]}"
+        ></textarea>
       </div>
       <div id="proofResult">{isValidProof ? "yes" : "no"}</div>
       <div className="container mx-auto">

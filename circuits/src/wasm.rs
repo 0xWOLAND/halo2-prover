@@ -48,8 +48,14 @@ pub fn wasm_generate_keys(
 }
 
 #[wasm_bindgen]
-pub fn wasm_generate_proof(_params: &[u8], _sequence: &[u8]) -> Uint8Array {
-    let mut sequence: Vec<u64> = _sequence.to_vec().iter().map(|k| *k as u64).collect();
+pub fn wasm_generate_proof(_params: &[u8], s: &str) -> Uint8Array {
+    panic::set_hook(Box::new(console_error_panic_hook::hook));
+    let v: CollatzInput = serde_json::from_str(s).unwrap();
+    // let _sequence: Vec<u64> = v.x.iter().map(|k| k.parse::<u64>().unwrap()).collect();
+    let _sequence = v.x;
+    log(&format!("{:?}", _sequence));
+    // let mut sequence: Vec<u64> = _sequence.to_vec().iter().map(|k| *k as u64).collect();
+    let mut sequence = _sequence;
     sequence.resize(32, 1);
     let circuit = create_circuit(sequence);
     let params = ParamsKZG::<Bn256>::read(&mut BufReader::new(_params))
