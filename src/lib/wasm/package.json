@@ -1,0 +1,17 @@
+{
+  "name": "halo2-prover",
+  "collaborators": [
+    "Bhargav Annem <bhargav.annem@gmail.com>"
+  ],
+  "version": "0.1.0",
+  "files": [
+    "halo2_prover_bg.wasm",
+    "halo2_prover.js",
+    "halo2_prover.d.ts"
+  ],
+  "module": "halo2_prover.js",
+  "types": "halo2_prover.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
