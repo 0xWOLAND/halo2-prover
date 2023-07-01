@@ -82,7 +82,6 @@ pub fn wasm_generate_proof(_params: &[u8], s: &str, circuit: i32) -> Uint8Array 
 pub fn wasm_verify_proof(_params: &[u8], proof: &[u8], s: &str, circuit: i32) -> bool {
     let params = ParamsKZG::<Bn256>::read(&mut BufReader::new(_params))
         .expect("should be able to read params");
-    log(&format!("CIRCUIT IDX: {}", circuit));
     let res = match circuit {
         0 => {
             log("Collatz");
