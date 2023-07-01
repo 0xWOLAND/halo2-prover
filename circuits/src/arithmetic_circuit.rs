@@ -41,6 +41,7 @@ pub struct ArithmeticInput {
     pub x: u64,
     pub y: u64,
     pub constant: u64,
+    pub z: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -274,16 +275,20 @@ pub fn create_circuit(x: u64, y: u64, constant: u64) -> ArithmeticCircuit<Fr> {
     ArithmeticCircuit { x, y, constant }
 }
 
-pub fn empty_circuit() -> ArithmeticCircuit<Fr> {
+pub fn empty_circuit(constant: u64) -> ArithmeticCircuit<Fr> {
     ArithmeticCircuit {
         x: Value::unknown(),
         y: Value::unknown(),
-        constant: Fr::from(7),
+        constant: Fr::from(constant),
     }
 }
 
+pub fn parse_string(s: &str) -> ArithmeticInput {
+    serde_json::from_str(s).unwrap()
+}
+
 pub fn create_circuit_from_string(s: &str) -> ArithmeticCircuit<Fr> {
-    let v: ArithmeticInput = serde_json::from_str(s).unwrap();
+    let v = parse_string(s);
     let x = v.x;
     let y = v.y;
     let constant = v.constant;
@@ -305,7 +310,7 @@ mod test {
     use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk, verify_proof};
     use halo2_proofs::poly::commitment::ParamsProver;
     use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG};
-    use halo2_proofs::poly::kzg::multiopen::{ProverGWC, VerifierGWC};
+    use halo2_proofs::poly::kzg::multiopen::{ProverGWC, VerifierGWC, VerifierSHPLONK};
     use halo2_proofs::poly::kzg::strategy::SingleStrategy;
     use halo2_proofs::poly::VerificationStrategy;
     use halo2_proofs::transcript::{
@@ -344,34 +349,11 @@ mod test {
 
         let params = ParamsKZG::<Bn256>::new(k);
 
-        let empty_circuit: ArithmeticCircuit<Fr> = empty_circuit();
-        let vk = keygen_vk(&params, &empty_circuit).expect("vk should not fail");
-        let pk = keygen_pk(&params, vk, &empty_circuit).expect("keygen_pk should not fail");
+        let empty_circuit: ArithmeticCircuit<Fr> = empty_circuit(constant);
+        let (pk, vk) = generate_keys(&params, &empty_circuit);
+        let proof = generate_proof_with_instance(&params, &pk, circuit, &public_input);
 
-        let mut transcript: Blake2bWrite<Vec<u8>, G1Affine, Challenge255<G1Affine>> =
-            Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
-        create_proof::<KZGCommitmentScheme<Bn256>, ProverGWC<Bn256>, _, _, _, _>(
-            &params,
-            &pk,
-            &[circuit],
-            &[&[&public_input]],
-            OsRng,
-            &mut transcript,
-        )
-        .expect("proof generation should not fail");
-        // Derive the actual proof from the transcript data
-        let proof = transcript.finalize();
-
-        // Notice that this transcript is to be read from, not written to
-        let transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
-        let strategy = SingleStrategy::new(&params);
-        verify_proof::<_, VerifierGWC<Bn256>, _, _, _>(
-            &params,
-            pk.get_vk(),
-            strategy.clone(),
-            &[&[&public_input]],
-            &mut transcript.clone(),
-        )
-        .unwrap();
+        let is_valid = verify_with_instance(&params, &pk, &proof, &public_input).unwrap();
+        assert_eq!(is_valid, ());
     }
 }

@@ -247,8 +247,12 @@ pub fn empty_circuit() -> CollatzCircuit<Fr> {
     }
 }
 
+pub fn parse_string(s: &str) -> CollatzInput {
+    serde_json::from_str(s).unwrap()
+}
+
 pub fn create_circuit_from_string(s: &str) -> CollatzCircuit<Fr> {
-    let v: CollatzInput = serde_json::from_str(s).unwrap();
+    let v = parse_string(s);
     let mut sequence = v.x;
     sequence.resize(32, 1);
     create_circuit(sequence)

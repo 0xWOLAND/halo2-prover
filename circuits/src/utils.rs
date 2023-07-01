@@ -11,7 +11,7 @@ use halo2_proofs::{
         commitment::{Params, ParamsProver},
         kzg::{
             commitment::{KZGCommitmentScheme, ParamsKZG},
-            multiopen::{ProverGWC, ProverSHPLONK, VerifierSHPLONK},
+            multiopen::{ProverGWC, ProverSHPLONK, VerifierGWC, VerifierSHPLONK},
             strategy::SingleStrategy,
         },
     },
@@ -101,14 +101,8 @@ pub fn generate_proof_with_instance(
 ) -> Vec<u8> {
     println!("Generating proof...");
     println!("Public input: {:?}", public_input);
-
-    let mut transcript: Blake2bWrite<Vec<u8>, _, Challenge255<_>> =
+    let mut transcript: Blake2bWrite<Vec<u8>, G1Affine, Challenge255<G1Affine>> =
         Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
-
-    // let z = Fr::from(36 * 81 + 7);
-    // let constant = Fr::from(7);
-    let instances: &[&[Fr]] = &[public_input];
-
     create_proof::<
         KZGCommitmentScheme<Bn256>,
         ProverGWC<'_, Bn256>,
@@ -116,14 +110,22 @@ pub fn generate_proof_with_instance(
         _,
         Blake2bWrite<Vec<u8>, G1Affine, Challenge255<_>>,
         _,
-    >(params, pk, &[circuit], &[instances], OsRng, &mut transcript)
-    .expect("Prover should not fail");
+    >(
+        &params,
+        &pk,
+        &[circuit],
+        &[&[&public_input]],
+        OsRng,
+        &mut transcript,
+    )
+    .expect("proof generation should not fail");
     transcript.finalize()
+    // Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..])
 }
 
 pub fn verify(
     params: &ParamsKZG<Bn256>,
-    vk: &VerifyingKey<G1Affine>,
+    pk: &ProvingKey<G1Affine>,
     proof: &Vec<u8>,
 ) -> Result<(), Error> {
     println!("Verifying proof...");
@@ -135,24 +137,25 @@ pub fn verify(
         Challenge255<G1Affine>,
         Blake2bRead<&[u8], G1Affine, Challenge255<G1Affine>>,
         SingleStrategy<'_, Bn256>,
-    >(params, vk, strategy, &[&[]], &mut transcript)
+    >(params, pk.get_vk(), strategy, &[&[]], &mut transcript)
 }
 pub fn verify_with_instance(
     params: &ParamsKZG<Bn256>,
-    vk: &VerifyingKey<G1Affine>,
+    pk: &ProvingKey<G1Affine>,
     proof: &Vec<u8>,
     public_input: &[Fr],
 ) -> Result<(), Error> {
     println!("Verifying proof...");
+    let transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
     let strategy = SingleStrategy::new(&params);
-    let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
-    verify_proof::<
-        KZGCommitmentScheme<Bn256>,
-        VerifierSHPLONK<'_, Bn256>,
-        Challenge255<G1Affine>,
-        Blake2bRead<&[u8], G1Affine, Challenge255<G1Affine>>,
-        SingleStrategy<'_, Bn256>,
-    >(params, vk, strategy, &[&[public_input]], &mut transcript)
+    Ok(verify_proof::<_, VerifierGWC<Bn256>, _, _, _>(
+        &params,
+        pk.get_vk(),
+        strategy.clone(),
+        &[&[&public_input]],
+        &mut transcript.clone(),
+    )
+    .unwrap())
 }
 
 #[wasm_bindgen]
