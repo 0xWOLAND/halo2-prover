@@ -4,24 +4,34 @@ import Image from "next/image";
 import ArithmeticCircuit from "../../public/arithmetic_circuit.svg";
 import CollatzCircuit from "../../public/collatz.svg";
 
-// set current circuit in local storage
-// every time you switch it clears local storage
-export const Halo2Circuits = () => {
+interface CircuitContextProps {
+  setCircuitIndex: Function;
+  circuitIndex: number;
+  clear: Function;
+}
+
+interface ProofProps {
+  isValidProof: String;
+  setIsValidProof: Function;
+  input: String;
+  setInput: Function;
+  circuitIndex: number;
+}
+
+export const CircuitContext = (props: CircuitContextProps) => {
   const ctx = useContext(WASMContext);
   const wasm = ctx.wasm!;
-  const [circuitIndex, setCircuitIndex] = useState(0);
+  let circuitIndex = props.circuitIndex;
+  const setCircuitIndex = props.setCircuitIndex;
+  const clear = props.clear;
 
   const images = [CollatzCircuit, ArithmeticCircuit];
 
-  useEffect(() => {
-    localStorage.setItem("circuit_index", circuitIndex.toString());
-  });
-
   const handleSwitch = (e: number) => {
+    clear();
     setCircuitIndex(
       (circuitIndex + e + wasm.get_circuit_count()) % wasm.get_circuit_count()
     );
-    localStorage.setItem("circuit_index", circuitIndex.toString());
   };
 
   return (
@@ -33,25 +43,34 @@ export const Halo2Circuits = () => {
       />
       <div className="flex justify-center">
         <button
-          className="rounded-md bg-orange-300 m-2 py-1.5 px-2 text-slate-950"
+          className="rounded-md bg-orange-300 m-2 py-1.5 px-3 text-slate-950"
           onClick={() => handleSwitch(-1)}
         >
           &lt;-
         </button>
         <button
-          className="rounded-md bg-orange-300 m-2 py-1.5 px-2 text-slate-950"
+          className="rounded-md bg-orange-300 m-2 py-1.5 px-3 text-slate-950"
           onClick={() => handleSwitch(1)}
         >
           -&gt;
+        </button>
+        <button
+          className="rounded-md bg-red-600 m-2 py-1.5 px-3 text-slate-950"
+          onClick={() => clear()}
+        >
+          Clear
         </button>
       </div>
     </div>
   );
 };
 
-export const Proof = () => {
-  const [isValidProof, setIsValidProof] = useState(false);
-  const [input, setInput] = useState('{ "x": [5, 16, 8, 4, 2, 1]}');
+export const Proof = (props: ProofProps) => {
+  let isValidProof = props.isValidProof;
+  let input = props.input;
+  const setIsValidProof = props.setIsValidProof;
+  const setInput = props.setInput;
+  const circuitIndex = props.circuitIndex;
 
   const ctx = useContext(WASMContext);
 
@@ -63,42 +82,46 @@ export const Proof = () => {
     );
   };
 
-  const setupParams = () => {
-    localStorage.setItem("setup_params", wasm.setup(10).join(","));
-    console.log(wasm.hello_world());
+  const setupParams = async () => {
+    await localStorage.setItem("setup_params", wasm.setup(10).join(","));
   };
 
-  const wasmGenerateProof = () => {
-    const setup_params = getLocalItem("setup_params");
-    const sequence = JSON.stringify(JSON.parse(input));
-    const circuit_index = parseInt(
-      localStorage.getItem("circuit_index") as string
-    );
-    localStorage.setItem(
-      "proof",
-      wasm.wasm_generate_proof(setup_params, sequence, circuit_index).join(",")
-    );
+  const wasmGenerateProof = async () => {
+    try {
+      const setup_params = getLocalItem("setup_params");
+      const witness = JSON.stringify(JSON.parse(input as string));
+      localStorage.setItem(
+        "proof",
+        await wasm
+          .wasm_generate_proof(setup_params, witness, circuitIndex)
+          .join(",")
+      );
+    } catch {
+      alert("Invalid params...");
+    }
   };
 
-  const wasmVerifyProof = () => {
-    console.log("1");
-    const setup_params = getLocalItem("setup_params");
-    console.log("2");
-    const proof = getLocalItem("proof");
-    console.log("3");
-    const circuitIndex = parseInt(
-      localStorage.getItem("circuit_index") as string
-    );
-    console.log("4");
-    const sequence = JSON.stringify(JSON.parse(input));
-    console.log("5");
-    const isValid: boolean = wasm.wasm_verify_proof(
-      setup_params,
-      proof,
-      sequence,
-      circuitIndex
-    );
-    setIsValidProof(isValid);
+  const wasmVerifyProof = async () => {
+    try {
+      const setup_params = getLocalItem("setup_params");
+      const proof = getLocalItem("proof");
+      const sequence = JSON.stringify(JSON.parse(input as string));
+      const isValid = async () => {
+        try {
+          return wasm.wasm_verify_proof(
+            setup_params,
+            proof,
+            sequence,
+            circuitIndex
+          );
+        } catch {
+          return false;
+        }
+      };
+      setIsValidProof((await isValid()) ? "Valid Proof" : "Invalid Proof");
+    } catch {
+      alert("Invalid params...");
+    }
   };
 
   return (
@@ -111,7 +134,7 @@ export const Proof = () => {
           placeholder='{ "x": [5, 16, 8, 4, 2, 1, 1]}'
         ></textarea>
       </div>
-      <div id="proofResult">{isValidProof ? "yes" : "no"}</div>
+      <div id="proofResult">{isValidProof}</div>
       <div className="container mx-auto">
         <button
           className="rounded-md bg-orange-300 m-2 py-1.5 px-2 w-56 text-slate-950"
