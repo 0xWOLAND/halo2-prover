@@ -1,6 +1,9 @@
 use crate::{
-    collatz::*,
-    utils::{generate_keys, generate_params, generate_proof, verify},
+    arithmetic_circuit::{parse_string, ArithmeticInput},
+    utils::{
+        generate_keys, generate_params, generate_proof, generate_proof_with_instance, verify,
+        verify_with_instance,
+    },
 };
 use halo2_proofs::{
     circuit::Value,
@@ -52,32 +55,51 @@ pub fn wasm_generate_keys(
 #[wasm_bindgen]
 pub fn wasm_generate_proof(_params: &[u8], s: &str, circuit: i32) -> Uint8Array {
     panic::set_hook(Box::new(console_error_panic_hook::hook));
-    let v: CollatzInput = serde_json::from_str(s).unwrap();
-    // let _sequence: Vec<u64> = v.x.iter().map(|k| k.parse::<u64>().unwrap()).collect();
-    let _sequence = v.x;
-    log(&format!("{:?}", _sequence));
-    // let mut sequence: Vec<u64> = _sequence.to_vec().iter().map(|k| *k as u64).collect();
-    let mut sequence = _sequence;
-    sequence.resize(32, 1);
-    let circuit = create_circuit(sequence);
     let params = ParamsKZG::<Bn256>::read(&mut BufReader::new(_params))
         .expect("should be able to read params");
 
-    let empty_circuit = empty_circuit();
-    let (pk, vk) = wasm_generate_keys(&params, empty_circuit);
+    let proof = match circuit {
+        0 => {
+            let circuit = crate::collatz::create_circuit_from_string(s);
+            let empty_circuit = crate::collatz::empty_circuit();
+            let (pk, vk) = wasm_generate_keys(&params, empty_circuit);
+            generate_proof(&params, &pk, circuit)
+        }
+        _ => {
+            let public_inputs: ArithmeticInput = parse_string(s);
+            let circuit = crate::arithmetic_circuit::create_circuit_from_string(s);
+            let empty_circuit = crate::arithmetic_circuit::empty_circuit(public_inputs.constant);
+            let public_inputs = [public_inputs.constant, public_inputs.z].map(|k| Fr::from(k));
+            let (pk, vk) = wasm_generate_keys(&params, empty_circuit);
+            generate_proof_with_instance(&params, &pk, circuit, &public_inputs)
+        }
+    };
 
-    to_uint8_array(generate_proof(&params, &pk, circuit, &vec![]))
+    to_uint8_array(proof)
 }
 
 #[wasm_bindgen]
-pub fn wasm_verify_proof(_params: &[u8], proof: &[u8]) -> bool {
+pub fn wasm_verify_proof(_params: &[u8], proof: &[u8], s: &str, circuit: i32) -> bool {
     let params = ParamsKZG::<Bn256>::read(&mut BufReader::new(_params))
         .expect("should be able to read params");
-    let empty_circuit = empty_circuit();
+    log(&format!("CIRCUIT IDX: {}", circuit));
+    let res = match circuit {
+        0 => {
+            log("Collatz");
+            let empty_circuit = crate::collatz::empty_circuit();
+            let (pk, vk) = generate_keys(&params, &empty_circuit);
+            verify(&params, &pk, &proof.to_vec())
+        }
+        _ => {
+            log("Arithmetic Circuit");
+            let public_inputs: ArithmeticInput = parse_string(s);
+            let empty_circuit = crate::arithmetic_circuit::empty_circuit(public_inputs.constant);
+            let (pk, vk) = generate_keys(&params, &empty_circuit);
+            let public_inputs = [public_inputs.constant, public_inputs.z].map(|k| Fr::from(k));
+            verify_with_instance(&params, &pk, &proof.to_vec(), &public_inputs)
+        }
+    };
 
-    let (pk, vk) = generate_keys(&params, empty_circuit);
-
-    let res = verify(&params, &vk, &proof.to_vec());
     match res {
         Err(e) => {
             log(&format!("{}", e));

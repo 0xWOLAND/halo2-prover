@@ -11,7 +11,7 @@ use halo2_proofs::{
         commitment::{Params, ParamsProver},
         kzg::{
             commitment::{KZGCommitmentScheme, ParamsKZG},
-            multiopen::{ProverSHPLONK, VerifierSHPLONK},
+            multiopen::{ProverGWC, ProverSHPLONK, VerifierGWC, VerifierSHPLONK},
             strategy::SingleStrategy,
         },
     },
@@ -63,10 +63,10 @@ pub fn generate_params(k: u32) -> ParamsKZG<Bn256> {
 
 pub fn generate_keys(
     params: &ParamsKZG<Bn256>,
-    circuit: impl Circuit<Fr>,
+    circuit: &impl Circuit<Fr>,
 ) -> (ProvingKey<G1Affine>, VerifyingKey<G1Affine>) {
-    let vk = keygen_vk(params, &circuit).expect("vk should not fail");
-    let pk = keygen_pk(params, vk.clone(), &circuit).expect("keygen_pk should not fail");
+    let vk = keygen_vk(params, circuit).expect("vk should not fail");
+    let pk = keygen_pk(params, vk.clone(), circuit).expect("keygen_pk should not fail");
     (pk, vk)
 }
 
@@ -74,20 +74,13 @@ pub fn generate_proof(
     params: &ParamsKZG<Bn256>,
     pk: &ProvingKey<G1Affine>,
     circuit: impl Circuit<Fr>,
-    public_input: &Vec<Fr>,
 ) -> Vec<u8> {
     println!("Generating proof...");
-    let public_input: Vec<Fr> = if public_input.len() > 0 {
-        public_input.clone()
-    } else {
-        vec![]
-    };
-
-    println!("Public input: {:?}", public_input);
 
     let mut transcript: Blake2bWrite<Vec<u8>, _, Challenge255<_>> =
         Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
 
+    let instances: &[&[Fr]] = &[&[]];
     create_proof::<
         KZGCommitmentScheme<Bn256>,
         ProverSHPLONK<'_, Bn256>,
@@ -100,9 +93,39 @@ pub fn generate_proof(
     transcript.finalize()
 }
 
+pub fn generate_proof_with_instance(
+    params: &ParamsKZG<Bn256>,
+    pk: &ProvingKey<G1Affine>,
+    circuit: impl Circuit<Fr>,
+    public_input: &[Fr],
+) -> Vec<u8> {
+    println!("Generating proof...");
+    println!("Public input: {:?}", public_input);
+    let mut transcript: Blake2bWrite<Vec<u8>, G1Affine, Challenge255<G1Affine>> =
+        Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+    create_proof::<
+        KZGCommitmentScheme<Bn256>,
+        ProverGWC<'_, Bn256>,
+        Challenge255<G1Affine>,
+        _,
+        Blake2bWrite<Vec<u8>, G1Affine, Challenge255<_>>,
+        _,
+    >(
+        &params,
+        &pk,
+        &[circuit],
+        &[&[&public_input]],
+        OsRng,
+        &mut transcript,
+    )
+    .expect("proof generation should not fail");
+    transcript.finalize()
+    // Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..])
+}
+
 pub fn verify(
     params: &ParamsKZG<Bn256>,
-    vk: &VerifyingKey<G1Affine>,
+    pk: &ProvingKey<G1Affine>,
     proof: &Vec<u8>,
 ) -> Result<(), Error> {
     println!("Verifying proof...");
@@ -114,7 +137,25 @@ pub fn verify(
         Challenge255<G1Affine>,
         Blake2bRead<&[u8], G1Affine, Challenge255<G1Affine>>,
         SingleStrategy<'_, Bn256>,
-    >(params, vk, strategy, &[&[]], &mut transcript)
+    >(params, pk.get_vk(), strategy, &[&[]], &mut transcript)
+}
+pub fn verify_with_instance(
+    params: &ParamsKZG<Bn256>,
+    pk: &ProvingKey<G1Affine>,
+    proof: &Vec<u8>,
+    public_input: &[Fr],
+) -> Result<(), Error> {
+    println!("Verifying proof...");
+    let transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
+    let strategy = SingleStrategy::new(&params);
+    Ok(verify_proof::<_, VerifierGWC<Bn256>, _, _, _>(
+        &params,
+        pk.get_vk(),
+        strategy.clone(),
+        &[&[&public_input]],
+        &mut transcript.clone(),
+    )
+    .unwrap())
 }
 
 #[wasm_bindgen]

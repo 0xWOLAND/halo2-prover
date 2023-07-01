@@ -19,9 +19,11 @@ export function wasm_generate_proof(_params: Uint8Array, s: string, circuit: num
 /**
 * @param {Uint8Array} _params
 * @param {Uint8Array} proof
+* @param {string} s
+* @param {number} circuit
 * @returns {boolean}
 */
-export function wasm_verify_proof(_params: Uint8Array, proof: Uint8Array): boolean;
+export function wasm_verify_proof(_params: Uint8Array, proof: Uint8Array, s: string, circuit: number): boolean;
 /**
 * @returns {number}
 */
@@ -34,7 +36,7 @@ export interface InitOutput {
   readonly hello_world: (a: number) => void;
   readonly setup: (a: number) => number;
   readonly wasm_generate_proof: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly wasm_verify_proof: (a: number, b: number, c: number, d: number) => number;
+  readonly wasm_verify_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly get_circuit_count: () => number;
   readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;

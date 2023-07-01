@@ -81,9 +81,23 @@ export const Proof = () => {
   };
 
   const wasmVerifyProof = () => {
+    console.log("1");
     const setup_params = getLocalItem("setup_params");
+    console.log("2");
     const proof = getLocalItem("proof");
-    const isValid: boolean = wasm.wasm_verify_proof(setup_params, proof);
+    console.log("3");
+    const circuitIndex = parseInt(
+      localStorage.getItem("circuit_index") as string
+    );
+    console.log("4");
+    const sequence = JSON.stringify(JSON.parse(input));
+    console.log("5");
+    const isValid: boolean = wasm.wasm_verify_proof(
+      setup_params,
+      proof,
+      sequence,
+      circuitIndex
+    );
     setIsValidProof(isValid);
   };
 
