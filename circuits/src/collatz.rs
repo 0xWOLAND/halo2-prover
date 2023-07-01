@@ -240,11 +240,20 @@ pub fn create_circuit(a: Vec<u64>) -> CollatzCircuit<Fr> {
 
     CollatzCircuit { x }
 }
+
 pub fn empty_circuit() -> CollatzCircuit<Fr> {
     CollatzCircuit {
         x: [Value::unknown(); 32],
     }
 }
+
+pub fn create_circuit_from_string(s: &str) -> CollatzCircuit<Fr> {
+    let v: CollatzInput = serde_json::from_str(s).unwrap();
+    let mut sequence = v.x;
+    sequence.resize(32, 1);
+    create_circuit(sequence)
+}
+
 #[cfg(test)]
 mod test {
     use halo2_proofs::{circuit::Value, dev::MockProver, halo2curves::bn256::Fr};

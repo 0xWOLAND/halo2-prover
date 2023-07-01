@@ -18,7 +18,7 @@ fn main() {
     let empty_circuit = empty_circuit();
     let (pk, vk) = generate_keys(&params, empty_circuit);
 
-    let proof = generate_proof(&params, &pk, circuit, &vec![]);
+    let proof = generate_proof(&params, &pk, circuit);
     let res = verify(&params, &vk, &proof);
     println!("RES: {:?}", res);
 }

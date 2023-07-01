@@ -7,6 +7,7 @@ use halo2_proofs::{
     plonk::{Advice, Assigned, Circuit, Column, ConstraintSystem, Error, Fixed, Instance},
     poly::Rotation,
 };
+use serde::{Deserialize, Serialize};
 
 trait ArithmeticInstructions<F: Field> {
     fn raw_multiply<FM>(
@@ -33,6 +34,13 @@ trait ArithmeticInstructions<F: Field> {
         cell: Cell,
         row: usize,
     ) -> Result<(), Error>;
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ArithmeticInput {
+    pub x: u64,
+    pub y: u64,
+    pub constant: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -270,16 +278,40 @@ pub fn empty_circuit() -> ArithmeticCircuit<Fr> {
     ArithmeticCircuit {
         x: Value::unknown(),
         y: Value::unknown(),
-        constant: Fr::from(0),
+        constant: Fr::from(7),
     }
+}
+
+pub fn create_circuit_from_string(s: &str) -> ArithmeticCircuit<Fr> {
+    let v: ArithmeticInput = serde_json::from_str(s).unwrap();
+    let x = v.x;
+    let y = v.y;
+    let constant = v.constant;
+    create_circuit(x, y, constant)
 }
 
 #[cfg(test)]
 mod test {
+    use crate::arithmetic_circuit::{create_circuit, empty_circuit};
+    use crate::utils::{
+        generate_keys, generate_params, generate_proof, generate_proof_with_instance, verify,
+        verify_with_instance,
+    };
+
     use super::ArithmeticCircuit;
     use halo2_proofs::circuit::Value;
     use halo2_proofs::dev::MockProver;
-    use halo2_proofs::halo2curves::bn256::Fr;
+    use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
+    use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk, verify_proof};
+    use halo2_proofs::poly::commitment::ParamsProver;
+    use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG};
+    use halo2_proofs::poly::kzg::multiopen::{ProverGWC, VerifierGWC};
+    use halo2_proofs::poly::kzg::strategy::SingleStrategy;
+    use halo2_proofs::poly::VerificationStrategy;
+    use halo2_proofs::transcript::{
+        Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
+    };
+    use rand_core::OsRng;
 
     #[test]
     fn test() {
@@ -298,5 +330,48 @@ mod test {
         let mut public_inputs = vec![constant, z];
         let prover = MockProver::run(k, &circuit, vec![public_inputs.clone()]).unwrap();
         assert_eq!(prover.verify(), Ok(()));
+    }
+
+    #[test]
+    fn test_ecc() {
+        let k = 8;
+        let constant = 7;
+        let x = 6;
+        let y = 9;
+        let z = Fr::from(36 * 81 + 7);
+        let circuit = create_circuit(x, y, constant);
+        let public_input = [Fr::from(constant), z];
+
+        let params = ParamsKZG::<Bn256>::new(k);
+
+        let empty_circuit: ArithmeticCircuit<Fr> = empty_circuit();
+        let vk = keygen_vk(&params, &empty_circuit).expect("vk should not fail");
+        let pk = keygen_pk(&params, vk, &empty_circuit).expect("keygen_pk should not fail");
+
+        let mut transcript: Blake2bWrite<Vec<u8>, G1Affine, Challenge255<G1Affine>> =
+            Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+        create_proof::<KZGCommitmentScheme<Bn256>, ProverGWC<Bn256>, _, _, _, _>(
+            &params,
+            &pk,
+            &[circuit],
+            &[&[&public_input]],
+            OsRng,
+            &mut transcript,
+        )
+        .expect("proof generation should not fail");
+        // Derive the actual proof from the transcript data
+        let proof = transcript.finalize();
+
+        // Notice that this transcript is to be read from, not written to
+        let transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
+        let strategy = SingleStrategy::new(&params);
+        verify_proof::<_, VerifierGWC<Bn256>, _, _, _>(
+            &params,
+            pk.get_vk(),
+            strategy.clone(),
+            &[&[&public_input]],
+            &mut transcript.clone(),
+        )
+        .unwrap();
     }
 }

@@ -163,14 +163,15 @@ export function wasm_generate_proof(_params, s, circuit) {
 /**
 * @param {Uint8Array} _params
 * @param {Uint8Array} proof
+* @param {number} circuit
 * @returns {boolean}
 */
-export function wasm_verify_proof(_params, proof) {
+export function wasm_verify_proof(_params, proof, circuit) {
     const ptr0 = passArray8ToWasm0(_params, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
     const ptr1 = passArray8ToWasm0(proof, wasm.__wbindgen_malloc);
     const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.wasm_verify_proof(ptr0, len0, ptr1, len1);
+    const ret = wasm.wasm_verify_proof(ptr0, len0, ptr1, len1, circuit);
     return ret !== 0;
 }
 
