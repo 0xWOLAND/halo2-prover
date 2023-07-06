@@ -157,8 +157,3 @@ pub fn verify_with_instance(
     )
     .unwrap())
 }
-
-#[wasm_bindgen]
-pub fn hello_world() -> String {
-    "Hello World from Rust!".to_string()
-}

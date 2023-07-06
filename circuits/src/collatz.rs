@@ -280,7 +280,7 @@ mod test {
 
     #[test]
     fn print_collatz() {
-        let n = 5;
+        let n = 154;
         println!("{:?}", collatz_conjecture(n));
     }
 }
