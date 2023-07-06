@@ -3,7 +3,7 @@ Web environment to prove halo2 circuits using WASM.
 
 ## test
 ```
-yarn dev # run test environment
+yarn dev
 ```
 ## build
 ```
