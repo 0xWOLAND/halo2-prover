@@ -123,7 +123,6 @@ impl<F: PrimeField> CollatzChip<F> {
 
                 let x = region.assign_advice(|| "x", self.config.witness, row, || entry)?;
                 let y = region.assign_advice(|| "y", self.config.witness, row + 1, || next)?;
-                let a: Value<Assigned<F>> = Value::known(F::from(2)).into();
 
                 let is_odd_cell =
                     region.assign_advice(|| "sel", self.config.is_odd, row, || is_odd)?;
@@ -177,7 +176,6 @@ impl<F: PrimeField> Circuit<F> for CollatzCircuit<F> {
     ) -> Result<(), Error> {
         let mut chip: CollatzChip<F> = CollatzChip::new(config);
         let nrows = self.x.len();
-        let one: Value<Assigned<F>> = Value::known(F::ONE).into();
 
         for row in 0..(nrows - 1) {
             let s = format!("Collatz({})", row);
