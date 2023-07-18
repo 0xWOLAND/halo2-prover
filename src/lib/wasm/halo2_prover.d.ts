@@ -6,6 +6,12 @@
 */
 export function setup(k: number): Uint8Array;
 /**
+* @param {string} s
+* @param {number} circuit
+* @returns {string}
+*/
+export function wasm_simulate_circuit(s: string, circuit: number): string;
+/**
 * @param {Uint8Array} _params
 * @param {string} s
 * @param {number} circuit
@@ -30,9 +36,11 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly setup: (a: number) => number;
+  readonly wasm_simulate_circuit: (a: number, b: number, c: number, d: number) => void;
   readonly wasm_generate_proof: (a: number, b: number, c: number, d: number, e: number) => number;
   readonly wasm_verify_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly get_circuit_count: () => number;
+  readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;

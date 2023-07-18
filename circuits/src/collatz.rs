@@ -117,7 +117,7 @@ impl<F: PrimeField> CollatzChip<F> {
         halo2_proofs::plonk::Error,
     > {
         layouter.assign_region(
-            || "initial entry",
+            || format!("entry_{}", row),
             |mut region| {
                 self.config.selector.enable(&mut region, row)?;
 
@@ -245,6 +245,10 @@ pub fn empty_circuit() -> CollatzCircuit<Fr> {
     }
 }
 
+pub fn simulate_circuit() -> String {
+    "N/A".to_string()
+}
+
 pub fn parse_string(s: &str) -> CollatzInput {
     serde_json::from_str(s).unwrap()
 }
@@ -258,11 +262,9 @@ pub fn create_circuit_from_string(s: &str) -> CollatzCircuit<Fr> {
 
 #[cfg(test)]
 mod test {
-    use halo2_proofs::{circuit::Value, dev::MockProver, halo2curves::bn256::Fr};
-
+    use super::create_circuit;
     use crate::collatz::collatz_conjecture;
-
-    use super::{create_circuit, CollatzCircuit};
+    use halo2_proofs::dev::MockProver;
 
     #[test]
     fn test_collatz() {

@@ -3,6 +3,7 @@ import { WASMContext } from "../context/wasm";
 import Image from "next/image";
 import ArithmeticCircuit from "../../public/arithmetic_circuit.svg";
 import CollatzCircuit from "../../public/collatz.svg";
+import PoseidonCircuit from "../../public/poseidon.svg";
 
 interface CircuitContextProps {
   setCircuitIndex: Function;
@@ -25,7 +26,7 @@ export const CircuitContext = (props: CircuitContextProps) => {
   const setCircuitIndex = props.setCircuitIndex;
   const clear = props.clear;
 
-  const images = [CollatzCircuit, ArithmeticCircuit];
+  const images = [CollatzCircuit, ArithmeticCircuit, PoseidonCircuit];
 
   const handleSwitch = (e: number) => {
     clear();
@@ -48,6 +49,9 @@ export const CircuitContext = (props: CircuitContextProps) => {
         >
           &lt;-
         </button>
+        <div className="flex justify-center m-2 py-1.5 px-3">
+          {circuitIndex}
+        </div>
         <button
           className="rounded-md bg-orange-300 m-2 py-1.5 px-3 text-slate-950"
           onClick={() => handleSwitch(1)}
@@ -86,9 +90,23 @@ export const Proof = (props: ProofProps) => {
     await localStorage.setItem("setup_params", wasm.setup(10).join(","));
   };
 
+  const simulateCircuit = async () => {
+    try {
+      const output = await wasm.wasm_simulate_circuit(
+        input as string,
+        circuitIndex
+      );
+      alert(output);
+    } catch {
+      alert("Invalid params...");
+    }
+    // console.log(wasm);
+  };
+
   const wasmGenerateProof = async () => {
     try {
       const setup_params = getLocalItem("setup_params");
+      console.log("ts input: " + input);
       const witness = JSON.stringify(JSON.parse(input as string));
       localStorage.setItem(
         "proof",
@@ -96,7 +114,8 @@ export const Proof = (props: ProofProps) => {
           .wasm_generate_proof(setup_params, witness, circuitIndex)
           .join(",")
       );
-    } catch {
+    } catch (e) {
+      console.error(e);
       alert("Invalid params...");
     }
   };
@@ -130,34 +149,47 @@ export const Proof = (props: ProofProps) => {
         <textarea
           id="input_field"
           className="max-h-96 h-60 block w-full p-2.5 text-sm text-gray-50 bg-gray-700 rounded-lg border border-gray-300"
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            setInput(e.target.value);
+            console.log(input);
+          }}
           placeholder='{ "x": [5, 16, 8, 4, 2, 1, 1]}'
         ></textarea>
       </div>
       <div id="proofResult">{isValidProof}</div>
-      <div className="container mx-auto">
-        <button
-          className="rounded-md bg-orange-300 m-2 py-1.5 px-2 w-56 text-slate-950"
-          onClick={setupParams}
-        >
-          Setup Params
-        </button>
-      </div>
-      <div className="container mx-auto">
-        <button
-          className="rounded-md bg-orange-300 m-2 py-1.5 px-2 w-56 text-slate-950"
-          onClick={wasmGenerateProof}
-        >
-          Generate Proof
-        </button>
-      </div>
-      <div className="container mx-auto">
-        <button
-          className="rounded-md bg-orange-300 m-2 py-1.5 px-2 w-56 text-slate-950"
-          onClick={wasmVerifyProof}
-        >
-          Verify Proof
-        </button>
+      <div className="columns-2">
+        <div className="container mx-auto">
+          <button
+            className="rounded-md bg-orange-300 m-2 py-1.5 px-2 w-56 text-slate-950"
+            onClick={simulateCircuit}
+          >
+            Simulate Circuit
+          </button>
+        </div>
+        <div className="container mx-auto">
+          <button
+            className="rounded-md bg-orange-300 m-2 py-1.5 px-2 w-56 text-slate-950"
+            onClick={setupParams}
+          >
+            Setup Params
+          </button>
+        </div>
+        <div className="container mx-auto">
+          <button
+            className="rounded-md bg-orange-300 m-2 py-1.5 px-2 w-56 text-slate-950"
+            onClick={wasmGenerateProof}
+          >
+            Generate Proof
+          </button>
+        </div>
+        <div className="container mx-auto">
+          <button
+            className="rounded-md bg-orange-300 m-2 py-1.5 px-2 w-56 text-slate-950"
+            onClick={wasmVerifyProof}
+          >
+            Verify Proof
+          </button>
+        </div>
       </div>
     </div>
   );
