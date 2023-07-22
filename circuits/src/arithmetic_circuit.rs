@@ -41,7 +41,7 @@ pub struct ArithmeticInput {
     pub x: u64,
     pub y: u64,
     pub constant: u64,
-    pub z: u64,
+    pub z: Option<u64>,
 }
 
 #[derive(Debug, Clone)]
@@ -295,28 +295,21 @@ pub fn create_circuit_from_string(s: &str) -> ArithmeticCircuit<Fr> {
     create_circuit(x, y, constant)
 }
 
+pub fn simulate_circuit(s: &str) -> String {
+    let inp = parse_string(s);
+    ((inp.x * inp.x) * (inp.y * inp.y) + inp.constant).to_string()
+}
+
 #[cfg(test)]
 mod test {
-    use crate::arithmetic_circuit::{create_circuit, empty_circuit};
-    use crate::utils::{
-        generate_keys, generate_params, generate_proof, generate_proof_with_instance, verify,
-        verify_with_instance,
-    };
-
     use super::ArithmeticCircuit;
+    use crate::arithmetic_circuit::{create_circuit, empty_circuit};
+    use crate::utils::{generate_keys, generate_proof_with_instance, verify_with_instance};
     use halo2_proofs::circuit::Value;
     use halo2_proofs::dev::MockProver;
-    use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
-    use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk, verify_proof};
+    use halo2_proofs::halo2curves::bn256::{Bn256, Fr};
     use halo2_proofs::poly::commitment::ParamsProver;
-    use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG};
-    use halo2_proofs::poly::kzg::multiopen::{ProverGWC, VerifierGWC, VerifierSHPLONK};
-    use halo2_proofs::poly::kzg::strategy::SingleStrategy;
-    use halo2_proofs::poly::VerificationStrategy;
-    use halo2_proofs::transcript::{
-        Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
-    };
-    use rand_core::OsRng;
+    use halo2_proofs::poly::kzg::commitment::ParamsKZG;
 
     #[test]
     fn test() {

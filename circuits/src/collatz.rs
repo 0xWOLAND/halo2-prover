@@ -117,13 +117,12 @@ impl<F: PrimeField> CollatzChip<F> {
         halo2_proofs::plonk::Error,
     > {
         layouter.assign_region(
-            || "initial entry",
+            || format!("entry_{}", row),
             |mut region| {
                 self.config.selector.enable(&mut region, row)?;
 
                 let x = region.assign_advice(|| "x", self.config.witness, row, || entry)?;
                 let y = region.assign_advice(|| "y", self.config.witness, row + 1, || next)?;
-                let a: Value<Assigned<F>> = Value::known(F::from(2)).into();
 
                 let is_odd_cell =
                     region.assign_advice(|| "sel", self.config.is_odd, row, || is_odd)?;
@@ -177,7 +176,6 @@ impl<F: PrimeField> Circuit<F> for CollatzCircuit<F> {
     ) -> Result<(), Error> {
         let mut chip: CollatzChip<F> = CollatzChip::new(config);
         let nrows = self.x.len();
-        let one: Value<Assigned<F>> = Value::known(F::ONE).into();
 
         for row in 0..(nrows - 1) {
             let s = format!("Collatz({})", row);
@@ -247,6 +245,10 @@ pub fn empty_circuit() -> CollatzCircuit<Fr> {
     }
 }
 
+pub fn simulate_circuit() -> String {
+    "N/A".to_string()
+}
+
 pub fn parse_string(s: &str) -> CollatzInput {
     serde_json::from_str(s).unwrap()
 }
@@ -260,11 +262,9 @@ pub fn create_circuit_from_string(s: &str) -> CollatzCircuit<Fr> {
 
 #[cfg(test)]
 mod test {
-    use halo2_proofs::{circuit::Value, dev::MockProver, halo2curves::bn256::Fr};
-
+    use super::create_circuit;
     use crate::collatz::collatz_conjecture;
-
-    use super::{create_circuit, CollatzCircuit};
+    use halo2_proofs::dev::MockProver;
 
     #[test]
     fn test_collatz() {

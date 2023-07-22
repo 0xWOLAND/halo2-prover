@@ -1,14 +1,13 @@
+use halo2_proofs::halo2curves::ff::PrimeField;
+use halo2_proofs::{arithmetic::Field, dev::CircuitLayout};
 use halo2_proofs::{
     dev::MockProver,
-    halo2curves::{
-        bn256::{Bn256, Fr, G1Affine},
-        pasta::EqAffine,
-    },
+    halo2curves::bn256::{Bn256, Fr, G1Affine},
     plonk::{
         create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, Error, ProvingKey, VerifyingKey,
     },
     poly::{
-        commitment::{Params, ParamsProver},
+        commitment::ParamsProver,
         kzg::{
             commitment::{KZGCommitmentScheme, ParamsKZG},
             multiopen::{ProverGWC, ProverSHPLONK, VerifierGWC, VerifierSHPLONK},
@@ -19,22 +18,22 @@ use halo2_proofs::{
         Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
     },
 };
+use num::{BigInt, Num};
 use plotters::prelude::*;
 use rand_core::OsRng;
-use wasm_bindgen::prelude::wasm_bindgen;
 
 #[cfg(not(target_family = "wasm"))]
-pub fn draw_graph(k: u32, name: String, circuit: &impl Circuit<Fr>) {
-    use halo2_proofs::dev::CircuitLayout;
-
-    let root = SVGBackend::new(&name, (1024, 768)).into_drawing_area();
+pub fn draw_graph<F: Field>(k: u32, name: &str, circuit: &impl Circuit<F>, rows: Option<usize>) {
+    let root = SVGBackend::new(name, (1024, 768)).into_drawing_area();
     root.fill(&WHITE).unwrap();
-    let root = root.titled(&name, ("sans-serif", 30)).unwrap();
-
+    let root = root.titled(name, ("sans-serif", 60)).unwrap();
+    // halo2_proofs::dev::CircuitLayout::default()
+    //     .render(k, circuit, &root)
+    //     .unwrap();
     CircuitLayout::default()
         .show_equality_constraints(true)
-        .view_width(0..2)
-        .view_height(0..16)
+        // .view_width(0..1 << 6)
+        .view_height(0..rows.unwrap_or(1 << 5))
         .show_labels(true)
         .render(k, circuit, &root)
         .unwrap()
@@ -156,4 +155,11 @@ pub fn verify_with_instance(
         &mut transcript.clone(),
     )
     .unwrap())
+}
+
+pub fn hex_to_fr(mut n: &str) -> Fr {
+    n = n.trim_start_matches("0x");
+    let res: Fr =
+        PrimeField::from_str_vartime(&BigInt::from_str_radix(n, 16).unwrap().to_string()).unwrap();
+    res
 }
